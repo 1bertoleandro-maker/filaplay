@@ -1,0 +1,24 @@
+@import 'tailwindcss';
+
+@plugin "@tailwindcss/forms";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+[x-cloak] {
+    display: none !important;
+}
+
+@theme {
+    --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+    --color-brand: #35c759;
+    --color-accent: #ffd60a;
+    --color-canvas: #0f1115;
+    --color-card: #1a1d23;
+    --color-line: #2a2f38;
+    --color-muted: #9ca3af;
+}

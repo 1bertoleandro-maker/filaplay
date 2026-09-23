@@ -1,0 +1,10 @@
+# Deixa a FILAPLAY acessível sem precisar digitar "/public" na URL
+# (http://localhost/filaplay/... em vez de http://localhost/filaplay/public/...).
+# Isso é o que faz a URL de callback do Google (cadastrada no Google Cloud
+# Console) bater com a URL real do app, sem redirect_uri_mismatch.
+# Complementado por um ajuste no public/index.php (ver comentário lá).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/filaplay/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
