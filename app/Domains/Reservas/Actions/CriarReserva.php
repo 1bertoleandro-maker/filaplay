@@ -91,6 +91,14 @@ final class CriarReserva
             ]);
         }
 
+        $ocupado = Reserva::conflitoDoSocio($socio, $inicio, $fim);
+
+        if ($ocupado !== null) {
+            throw ValidationException::withMessages([
+                'user_id' => $ocupado->mensagemConflitoSocio($socio),
+            ]);
+        }
+
         $metodo = $validacao === 'facial' ? PresencaMetodo::Facial : PresencaMetodo::Tablet;
         $observacao = 'Validado pela secretaria.';
 

@@ -1,4 +1,5 @@
 import './bootstrap';
+import './facial-catraca';
 
 document.addEventListener('livewire:init', () => {
     Livewire.hook('request', ({ fail }) => {

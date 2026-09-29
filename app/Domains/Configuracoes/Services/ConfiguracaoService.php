@@ -16,14 +16,43 @@ final class ConfiguracaoService
      */
     public function get(string $chave): ?array
     {
-        $tenantId = $this->tenantContext->id();
-
-        $query = Configuracao::query()->where('chave', $chave);
+        $tenantId = $this->tenantContext->id() ?? auth()->user()?->tenant_id;
 
         if ($tenantId === null) {
             return null;
         }
 
-        return $query->first()?->valor;
+        return Configuracao::query()
+            ->where('tenant_id', $tenantId)
+            ->where('chave', $chave)
+            ->first()?->valor;
+    }
+
+    /**
+     * @param  array<string, mixed>  $valor
+     */
+    public function set(string $chave, array $valor): void
+    {
+        $tenantId = $this->tenantContext->id() ?? auth()->user()?->tenant_id;
+
+        if ($tenantId === null) {
+            return;
+        }
+
+        Configuracao::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'chave' => $chave],
+            ['valor' => $valor],
+        );
+    }
+
+    public function ativo(string $chave, bool $padrao = false): bool
+    {
+        $valor = $this->get($chave);
+
+        if ($valor === null) {
+            return $padrao;
+        }
+
+        return (bool) ($valor['ativo'] ?? $padrao);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Jogadores\Livewire;
 
+use App\Domains\Jogadores\Actions\EnviarConviteFacial;
 use App\Domains\Jogadores\Actions\ImportarSociosPlanilha;
 use App\Domains\Jogadores\Actions\SalvarSocio;
 use App\Domains\Jogadores\Enums\NivelJogador;
@@ -22,7 +23,7 @@ class ListaSocios extends Component
     use WithFileUploads;
     use WithPagination;
 
-    public bool $formAberto = true;
+    public bool $formAberto = false;
 
     public bool $importarAberto = false;
 
@@ -50,6 +51,12 @@ class ListaSocios extends Component
     public mixed $face = null;
 
     public string $busca = '';
+
+    public ?int $facialSocioId = null;
+
+    public string $facialNome = '';
+
+    public mixed $faceBalcao = null;
 
     public function mount(): void
     {
@@ -112,6 +119,65 @@ class ListaSocios extends Component
         $this->resetForm();
     }
 
+    public function abrirFacialBalcao(int $id): void
+    {
+        $socio = User::query()->findOrFail($id);
+        abort_unless(auth()->user()->can('update', $socio), 403);
+
+        $this->facialSocioId = $socio->id;
+        $this->facialNome = $socio->nome;
+        $this->faceBalcao = null;
+        $this->resetValidation();
+    }
+
+    public function fecharFacialBalcao(): void
+    {
+        $this->facialSocioId = null;
+        $this->facialNome = '';
+        $this->faceBalcao = null;
+        $this->resetValidation();
+    }
+
+    public function salvarFacialBalcao(SalvarSocio $action): void
+    {
+        $socio = User::query()->findOrFail($this->facialSocioId);
+        abort_unless(auth()->user()->can('update', $socio), 403);
+
+        $this->validate([
+            'faceBalcao' => ['required', 'image', 'max:4096'],
+        ], [
+            'faceBalcao.required' => 'Tire a foto do rosto ou envie um arquivo.',
+            'faceBalcao.image' => 'O arquivo precisa ser uma imagem.',
+            'faceBalcao.max' => 'A imagem pode ter no máximo 4 MB.',
+        ], [
+            'faceBalcao' => 'foto do rosto',
+        ]);
+
+        $face = $this->faceBalcao instanceof UploadedFile ? $this->faceBalcao : null;
+
+        $action->handle(auth()->user(), [
+            'nome' => $socio->nome,
+            'matricula' => $socio->matricula,
+            'telefone' => $socio->telefone,
+            'email' => $socio->email,
+            'role' => $socio->role->value,
+            'nivel' => $socio->nivel?->value,
+        ], null, $face, $socio);
+
+        $this->fecharFacialBalcao();
+        session()->flash('status', "Reconhecimento facial de {$socio->nome} cadastrado na secretaria.");
+    }
+
+    public function enviarConviteFacial(EnviarConviteFacial $action, int $id): void
+    {
+        $socio = User::query()->findOrFail($id);
+        abort_unless(auth()->user()->can('update', $socio), 403);
+
+        $action->handle($socio);
+        $this->fecharFacialBalcao();
+        session()->flash('status', "Enviamos o link de reconhecimento facial para {$socio->nome}.");
+    }
+
     public function abrirImportacao(): void
     {
         abort_unless(auth()->user()->can('create', User::class), 403);
@@ -166,7 +232,7 @@ class ListaSocios extends Component
 
     private function resetForm(): void
     {
-        $this->formAberto = true;
+        $this->formAberto = false;
         $this->socioId = null;
         $this->nome = '';
         $this->matricula = '';

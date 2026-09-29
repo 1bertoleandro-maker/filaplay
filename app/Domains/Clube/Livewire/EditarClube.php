@@ -8,6 +8,8 @@ use App\Domains\Clube\Actions\AtualizarClube;
 use App\Domains\Clube\Actions\BuscarEnderecoPeloCep;
 use App\Domains\Clube\Actions\GeocodificarEndereco;
 use App\Domains\Clube\Services\HorarioDoClube;
+use App\Domains\Configuracoes\ConfiguracaoChave;
+use App\Domains\Configuracoes\Services\ConfiguracaoService;
 use App\Domains\Filas\Services\FilaEngine;
 use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
@@ -55,6 +57,10 @@ class EditarClube extends Component
 
     public bool $exibir_logo = true;
 
+    public bool $exigir_facial_tablet = false;
+
+    public string $tema = 'escuro';
+
     public function mount(): void
     {
         $tenant = auth()->user()?->tenant;
@@ -74,6 +80,8 @@ class EditarClube extends Component
         $this->latitude = $tenant->latitude !== null ? (float) $tenant->latitude : null;
         $this->longitude = $tenant->longitude !== null ? (float) $tenant->longitude : null;
         $this->exibir_logo = (bool) $tenant->exibir_logo;
+        $this->exigir_facial_tablet = app(ConfiguracaoService::class)->ativo(ConfiguracaoChave::TABLET_EXIGIR_FACIAL);
+        $this->tema = app(ConfiguracaoService::class)->get(ConfiguracaoChave::APARENCIA_TEMA)['tema'] ?? 'escuro';
 
         $grade = $tenant->horario_funcionamento ?? [];
 
@@ -148,7 +156,7 @@ class EditarClube extends Component
         $this->localizacaoMensagem = 'Localização confirmada automaticamente a partir do endereço.';
     }
 
-    public function salvar(AtualizarClube $action): void
+    public function salvar(AtualizarClube $action, ConfiguracaoService $config): void
     {
         $logo = $this->logo instanceof UploadedFile ? $this->logo : null;
 
@@ -169,8 +177,15 @@ class EditarClube extends Component
             'horarios' => $this->horarios,
         ], $logo);
 
+        $config->set(ConfiguracaoChave::TABLET_EXIGIR_FACIAL, ['ativo' => $this->exigir_facial_tablet]);
+        $config->set(ConfiguracaoChave::APARENCIA_TEMA, [
+            'tema' => $this->tema === 'claro' ? 'claro' : 'escuro',
+        ]);
+
         $this->logo = null;
         session()->flash('status', 'Clube atualizado.');
+
+        $this->redirect(route('clube.editar'), navigate: true);
     }
 
     public function alternarModoChuva(FilaEngine $engine): void

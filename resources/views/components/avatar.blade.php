@@ -14,7 +14,7 @@
         'xl' => 'h-28 w-28 text-4xl',
         default => 'h-14 w-14 text-lg',
     };
-    $inicial = $rotulo !== '' ? mb_strtoupper(mb_substr($rotulo, 0, 1)) : '?';
+    $inicial = $user?->iniciais() ?: ($rotulo !== '' ? mb_strtoupper(mb_substr($rotulo, 0, 1)) : '?');
 @endphp
 
 @if ($foto)

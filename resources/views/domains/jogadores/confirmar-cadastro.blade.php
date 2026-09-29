@@ -20,20 +20,18 @@
             <input type="password" wire:model="senha_confirmation" class="mt-2 w-full rounded-xl border-line bg-canvas text-lg">
         </label>
 
-        <label class="block">
-            <span class="text-lg text-muted">
-                Foto do seu rosto (para reconhecimento facial)
-                @unless ($this->precisaDeFoto()) <span class="text-muted">— opcional</span> @endunless
-            </span>
-            <input type="file" wire:model="foto" accept="image/*" capture="user" class="mt-2 w-full text-lg">
-            @error('foto') <span class="text-red-400">{{ $message }}</span> @enderror
-        </label>
+        <div>
+            <p class="mb-2 text-lg font-bold">
+                Foto do seu rosto (reconhecimento facial)
+                @unless ($this->precisaDeFoto()) <span class="font-normal text-muted">— opcional</span> @endunless
+            </p>
+            <x-camera-rosto model="foto" rotulo="Abrir minha câmera" />
+            @error('foto') <p class="mt-2 text-red-400">{{ $message }}</p> @enderror
+        </div>
 
-        @if ($foto)
-            <img src="{{ $foto->temporaryUrl() }}" alt="Prévia" class="mx-auto h-32 w-32 rounded-full object-cover ring-2 ring-brand">
-        @endif
-
-        <button type="submit" class="min-h-14 w-full rounded-2xl bg-brand text-xl font-semibold text-canvas">
+        <button type="submit"
+                class="flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand text-xl font-black text-canvas hover:brightness-110 active:scale-95">
+            <x-heroicon-o-check class="h-6 w-6" />
             Concluir cadastro e entrar
         </button>
     </form>

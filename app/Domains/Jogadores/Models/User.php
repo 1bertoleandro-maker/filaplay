@@ -50,6 +50,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'super_admin',
         'qr_token',
         'confirmacao_token',
+        'facial_token',
         'convite_enviado_em',
     ];
 
@@ -89,6 +90,42 @@ class User extends Authenticatable implements MustVerifyEmail
     public function podeAcessar(): bool
     {
         return ! $this->bloqueado && $this->status === UserStatus::Ativo;
+    }
+
+    /** Sócio jogador ativo (ou com facial já liberado) pode reservar no tablet. */
+    public function podeReservarNoTablet(): bool
+    {
+        if ($this->role !== UserRole::Jogador || $this->bloqueado) {
+            return false;
+        }
+
+        if ($this->status === UserStatus::Ativo) {
+            return true;
+        }
+
+        // Pendente com facial na secretaria: libera e ativa na hora.
+        return $this->status === UserStatus::Pendente && $this->cadastro_facial_completo;
+    }
+
+    public function primeiroNome(): string
+    {
+        $parte = explode(' ', trim($this->nome))[0] ?? $this->nome;
+
+        return $parte !== '' ? $parte : $this->nome;
+    }
+
+    public function iniciais(): string
+    {
+        $partes = preg_split('/\s+/', trim($this->nome)) ?: [];
+        $letras = '';
+
+        foreach (array_slice($partes, 0, 2) as $parte) {
+            if ($parte !== '') {
+                $letras .= mb_strtoupper(mb_substr($parte, 0, 1));
+            }
+        }
+
+        return $letras !== '' ? $letras : '?';
     }
 
     public function reservas(): HasMany
@@ -137,5 +174,12 @@ class User extends Authenticatable implements MustVerifyEmail
 
             return $caminho ? Storage::disk('public')->url($caminho) : null;
         });
+    }
+
+    protected function faceUrl(): Attribute
+    {
+        return Attribute::get(fn (): ?string => $this->face_photo_path
+            ? Storage::disk('public')->url($this->face_photo_path)
+            : null);
     }
 }

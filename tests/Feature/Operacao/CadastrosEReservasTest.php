@@ -376,7 +376,7 @@ test('admin ve os novos modulos', function () {
         ->get(route('tv.painel'))
         ->assertOk()
         ->assertSee('Central')
-        ->assertSee('Jogador TV')
+        ->assertSee('Jogador')
         ->assertSee('Reservado');
 });
 

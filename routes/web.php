@@ -7,6 +7,7 @@ use App\Domains\Clube\Livewire\Painel;
 use App\Domains\Filas\Livewire\Kiosk;
 use App\Domains\Filas\Livewire\ListaFilas;
 use App\Domains\Jogadores\Http\SociosPlanilhaController;
+use App\Domains\Jogadores\Livewire\CadastrarFacial;
 use App\Domains\Jogadores\Livewire\ConfirmarCadastro;
 use App\Domains\Jogadores\Livewire\ListaSocios;
 use App\Domains\Quadras\Http\PainelTvController;
@@ -22,6 +23,7 @@ Route::view('/', 'welcome');
 Route::middleware('guest')->group(function (): void {
     Route::get('cadastrar-clube', CadastrarClube::class)->name('clube.cadastrar');
     Route::get('confirmar-cadastro/{token}', ConfirmarCadastro::class)->name('socios.confirmar');
+    Route::get('reconhecimento-facial/{token}', CadastrarFacial::class)->name('socios.facial');
 
     Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
     Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');

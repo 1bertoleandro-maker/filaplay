@@ -72,12 +72,12 @@ new class extends Component
                 <x-heroicon-o-queue-list class="h-6 w-6" />
                 Fila e partidas
             </a>
-            <a href="{{ route('tv.painel') }}"
+            <a href="{{ route('tv.painel') }}" target="_blank" rel="noopener"
                class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-base font-semibold {{ request()->routeIs('tv.painel') ? 'bg-brand text-canvas' : 'text-white hover:bg-canvas' }}">
                 <x-heroicon-o-tv class="h-6 w-6" />
                 Painel TV
             </a>
-            <a href="{{ route('tablet.reserva') }}"
+            <a href="{{ route('tablet.reserva') }}" target="_blank" rel="noopener"
                class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-base font-semibold {{ request()->routeIs('tablet.reserva') ? 'bg-brand text-canvas' : 'text-white hover:bg-canvas' }}">
                 <x-heroicon-o-device-tablet class="h-6 w-6" />
                 Reserva no tablet

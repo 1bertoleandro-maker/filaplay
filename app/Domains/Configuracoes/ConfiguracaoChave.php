@@ -22,8 +22,12 @@ final class ConfiguracaoChave
 
     public const CANCELAMENTO_ANTECEDENCIA_HORAS = 'reserva.cancelamento_antecedencia_horas';
 
+    public const TABLET_EXIGIR_FACIAL = 'tablet.exigir_reconhecimento_facial';
+
+    public const APARENCIA_TEMA = 'aparencia.tema';
+
     /**
-     * @return array<string, array<string, int>>
+     * @return array<string, array<string, int|bool>>
      */
     public static function padroes(): array
     {
@@ -36,6 +40,8 @@ final class ConfiguracaoChave
             self::TEMPO_EXTRA_MINUTOS => ['minutos' => 5],
             self::CHUVA_DURACAO_MINUTOS => ['minutos' => 40],
             self::CANCELAMENTO_ANTECEDENCIA_HORAS => ['horas' => 2],
+            self::TABLET_EXIGIR_FACIAL => ['ativo' => false],
+            self::APARENCIA_TEMA => ['tema' => 'escuro'],
         ];
     }
 }

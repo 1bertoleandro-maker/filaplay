@@ -60,9 +60,13 @@
                 <p class="text-2xl font-bold">Fila e partidas</p>
                 <p class="mt-2 text-muted">Chamar próximos, tempo extra, liberar quadra</p>
             </a>
-            <a href="{{ route('tv.painel') }}" class="rounded-2xl border border-line bg-card p-6 hover:border-accent">
+            <a href="{{ route('tv.painel') }}" target="_blank" rel="noopener" class="rounded-2xl border border-line bg-card p-6 hover:border-accent">
                 <p class="text-2xl font-bold">Painel da TV</p>
                 <p class="mt-2 text-muted">Ocupação ao vivo nas quadras</p>
+            </a>
+            <a href="{{ route('tablet.reserva') }}" target="_blank" rel="noopener" class="rounded-2xl border border-line bg-card p-6 hover:border-brand">
+                <p class="text-2xl font-bold">Reserva no tablet</p>
+                <p class="mt-2 text-muted">Agenda presencial das quadras</p>
             </a>
         @endif
         @if (in_array($papel, [UserRole::Administrador, UserRole::Recepcao], true))

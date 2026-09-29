@@ -45,6 +45,21 @@ final class SalvarSocio
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($socio?->id)],
             'role' => ['required', Rule::enum(UserRole::class)],
             'nivel' => ['nullable', Rule::enum(NivelJogador::class)],
+        ], [
+            'nome.required' => 'Informe o nome do sócio.',
+            'matricula.required' => 'Informe a matrícula (código do tablet).',
+            'matricula.unique' => 'Esta matrícula já está cadastrada neste clube.',
+            'email.required' => 'Informe o e-mail do sócio.',
+            'email.email' => 'Informe um e-mail válido.',
+            'email.unique' => 'Este e-mail já está cadastrado.',
+            'role.required' => 'Selecione o papel do sócio.',
+        ], [
+            'nome' => 'nome',
+            'matricula' => 'matrícula',
+            'telefone' => 'telefone',
+            'email' => 'e-mail',
+            'role' => 'papel',
+            'nivel' => 'nível',
         ])->validate();
 
         $papel = UserRole::from($validados['role']);
@@ -100,6 +115,10 @@ final class SalvarSocio
 
             $socio->face_photo_path = $face->store('faces/'.$actor->tenant_id, 'public');
             $socio->cadastro_facial_completo = true;
+            // Facial na secretaria/atualização libera o sócio para reservar no tablet.
+            $socio->status = UserStatus::Ativo;
+            $socio->email_verified_at ??= now();
+            $socio->confirmacao_token = null;
         }
 
         $socio->fill([

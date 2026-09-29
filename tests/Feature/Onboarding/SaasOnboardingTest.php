@@ -17,6 +17,7 @@ use App\Domains\Quadras\Models\Quadra;
 use App\Domains\Reservas\Actions\ReservarPelaTablet;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -137,7 +138,8 @@ test('reserva pelo tablet identifica os dois jogadores pelo codigo e salva', fun
 
     expect($reserva->user_id)->toBe($principal->id)
         ->and($reserva->quadra_id)->toBe($quadra->id)
-        ->and($reserva->observacoes)->toContain($parceiro->nome);
+        ->and($reserva->observacoes)->toContain($parceiro->nome)
+        ->and($reserva->jogadores)->toHaveCount(2);
 });
 
 test('super admin cria cliente ja ativo e o responsavel recebe convite sem exigir foto', function () {
@@ -233,3 +235,189 @@ test('reserva pelo tablet rejeita codigo inexistente', function () {
         now()->addHour()->format('H:i'),
     );
 })->throws(ValidationException::class);
+
+test('tablet mostra a grade e secretaria reserva pelo codigo sem facial', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-23 10:04:00'));
+
+    $tenant = Tenant::factory()->create();
+    app(TenantContext::class)->set($tenant->id);
+    $admin = User::factory()->administrador()->create(['tenant_id' => $tenant->id]);
+    $quadra = Quadra::factory()->create(['tenant_id' => $tenant->id, 'apelido' => 'Central']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'AA11', 'nome' => 'Ana Clara']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'BB22', 'nome' => 'Bruno Silva']);
+
+    Livewire::actingAs($admin)
+        ->test(\App\Domains\Reservas\Livewire\ReservaTablet::class, ['modo' => 'secretaria'])
+        ->assertSee('Agenda de hoje')
+        ->assertSee('Central')
+        ->call('abrir', $quadra->id)
+        ->assertSet('painelAberto', true)
+        ->assertSet('hora', '10:05')
+        ->assertSet('horaFim', '11:05')
+        ->call('escolherModalidade', 'simples')
+        ->set('codigo', 'AA11')
+        ->call('identificarPorCodigo')
+        ->assertSet('identificado.nome', 'Ana Clara')
+        ->call('confirmarJogador')
+        ->set('codigo', 'BB22')
+        ->call('identificarPorCodigo')
+        ->call('confirmarJogador')
+        ->call('salvar')
+        ->assertSet('erro', false);
+
+    $reserva = \App\Domains\Reservas\Models\Reserva::query()->where('quadra_id', $quadra->id)->first();
+
+    expect($reserva)->not->toBeNull()
+        ->and($reserva->inicio->format('H:i'))->toBe('10:05')
+        ->and($reserva->fim->format('H:i'))->toBe('11:05');
+});
+
+test('proxima reserva na mesma quadra encadeia no fim da anterior', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-23 10:04:00'));
+
+    $tenant = Tenant::factory()->create();
+    app(TenantContext::class)->set($tenant->id);
+    $quadra = Quadra::factory()->create(['tenant_id' => $tenant->id]);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'P1']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'P2']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'P3']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'P4']);
+
+    $primeira = app(ReservarPelaTablet::class)->handle($quadra, 'P1', 'P2', now()->toDateString(), null);
+    $segunda = app(ReservarPelaTablet::class)->handle($quadra, 'P3', 'P4', now()->toDateString(), null);
+
+    expect($primeira->inicio->format('H:i'))->toBe('10:05')
+        ->and($primeira->fim->format('H:i'))->toBe('11:05')
+        ->and($segunda->inicio->format('H:i'))->toBe('11:05')
+        ->and($segunda->fim->format('H:i'))->toBe('12:05');
+});
+
+test('tablet exige facial quando o parametro do clube esta ativo e secretaria nao', function () {
+    Storage::fake('public');
+    Carbon::setTestNow(Carbon::parse('2026-09-23 10:04:00'));
+
+    $tenant = Tenant::factory()->create();
+    app(TenantContext::class)->set($tenant->id);
+    app(\App\Domains\Configuracoes\Services\ConfiguracaoService::class)
+        ->set(\App\Domains\Configuracoes\ConfiguracaoChave::TABLET_EXIGIR_FACIAL, ['ativo' => true]);
+
+    $admin = User::factory()->administrador()->create(['tenant_id' => $tenant->id]);
+    $quadra = Quadra::factory()->create(['tenant_id' => $tenant->id]);
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', true);
+    Storage::disk('public')->put('faces/ana.png', $png);
+
+    User::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matricula' => 'F1',
+        'nome' => 'Ana Facial',
+        'face_photo_path' => 'faces/ana.png',
+        'cadastro_facial_completo' => true,
+    ]);
+    User::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matricula' => 'F2',
+        'nome' => 'Bruno Facial',
+        'cadastro_facial_completo' => false,
+    ]);
+
+    // Tablet: sem reconhecimento automático, botão manual não libera (precisa olhar a câmera).
+    Livewire::actingAs($admin)
+        ->test(\App\Domains\Reservas\Livewire\ReservaTablet::class, ['modo' => 'tablet'])
+        ->call('abrir', $quadra->id)
+        ->call('escolherModalidade', 'simples')
+        ->set('codigo', 'F1')
+        ->call('identificarPorCodigo')
+        ->call('confirmarJogador')
+        ->assertHasErrors('foto_facial');
+
+    // Tablet: catraca libera via confirmarJogadorPorFacial.
+    Livewire::actingAs($admin)
+        ->test(\App\Domains\Reservas\Livewire\ReservaTablet::class, ['modo' => 'tablet'])
+        ->call('abrir', $quadra->id)
+        ->call('escolherModalidade', 'simples')
+        ->set('codigo', 'F1')
+        ->call('identificarPorCodigo')
+        ->call('confirmarJogadorPorFacial')
+        ->assertHasNoErrors()
+        ->assertSet('jogadores.0.matricula', 'F1');
+
+    // Secretaria: confere foto e segue sem câmera.
+    Livewire::actingAs($admin)
+        ->test(\App\Domains\Reservas\Livewire\ReservaTablet::class, ['modo' => 'secretaria'])
+        ->call('abrir', $quadra->id)
+        ->call('escolherModalidade', 'simples')
+        ->set('codigo', 'F1')
+        ->call('identificarPorCodigo')
+        ->call('confirmarJogador')
+        ->assertHasNoErrors()
+        ->assertSet('jogadores.0.matricula', 'F1');
+});
+
+test('mesmo socio nao reserva em outra quadra enquanto o horario nao acaba', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-23 10:04:00'));
+
+    $tenant = Tenant::factory()->create();
+    app(TenantContext::class)->set($tenant->id);
+    $quadraA = Quadra::factory()->create(['tenant_id' => $tenant->id, 'apelido' => 'Central']);
+    $quadraB = Quadra::factory()->create(['tenant_id' => $tenant->id, 'apelido' => 'Lateral']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'S1', 'nome' => 'Ana Souza']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'S2', 'nome' => 'Bruno Lima']);
+    User::factory()->create(['tenant_id' => $tenant->id, 'matricula' => 'S3', 'nome' => 'Carla Dias']);
+
+    app(ReservarPelaTablet::class)->handle($quadraA, 'S1', 'S2', now()->toDateString(), null);
+
+    try {
+        app(ReservarPelaTablet::class)->handle($quadraB, 'S1', 'S3', now()->toDateString(), null);
+        expect(false)->toBeTrue('deveria bloquear o sócio ocupado');
+    } catch (ValidationException $e) {
+        expect(collect($e->errors())->flatten()->first())
+            ->toContain('Ana ainda está na Central até 11:05');
+    }
+});
+
+test('clube envia link de reconhecimento facial e o socio cadastra a foto', function () {
+    Storage::fake('public');
+    $tenant = Tenant::factory()->create();
+    app(TenantContext::class)->set($tenant->id);
+    $socio = User::factory()->create([
+        'tenant_id' => $tenant->id,
+        'cadastro_facial_completo' => false,
+        'email' => 'socio.facial@teste.com',
+    ]);
+
+    $enviado = app(\App\Domains\Jogadores\Actions\EnviarConviteFacial::class)->handle($socio);
+
+    expect($enviado->facial_token)->not->toBeNull();
+
+    Livewire::test(\App\Domains\Jogadores\Livewire\CadastrarFacial::class, ['token' => $enviado->facial_token])
+        ->set('foto', UploadedFile::fake()->image('rosto.jpg'))
+        ->call('salvar')
+        ->assertSet('concluido', true);
+
+    expect($socio->fresh()->cadastro_facial_completo)->toBeTrue()
+        ->and($socio->fresh()->facial_token)->toBeNull();
+});
+
+test('secretaria cadastra o reconhecimento facial do socio na hora', function () {
+    Storage::fake('public');
+    $tenant = Tenant::factory()->create();
+    app(TenantContext::class)->set($tenant->id);
+    $recepcao = User::factory()->recepcao()->create(['tenant_id' => $tenant->id]);
+    $socio = User::factory()->create([
+        'tenant_id' => $tenant->id,
+        'nome' => 'Carla Quadra',
+        'cadastro_facial_completo' => false,
+    ]);
+
+    Livewire::actingAs($recepcao)
+        ->test(\App\Domains\Jogadores\Livewire\ListaSocios::class)
+        ->call('abrirFacialBalcao', $socio->id)
+        ->assertSet('facialNome', 'Carla Quadra')
+        ->set('faceBalcao', UploadedFile::fake()->image('rosto-balcao.jpg'))
+        ->call('salvarFacialBalcao')
+        ->assertHasNoErrors();
+
+    expect($socio->fresh()->cadastro_facial_completo)->toBeTrue()
+        ->and($socio->fresh()->face_photo_path)->not->toBeNull()
+        ->and($socio->fresh()->status)->toBe(UserStatus::Ativo);
+});

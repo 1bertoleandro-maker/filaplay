@@ -27,6 +27,39 @@
 
     <form wire:submit="salvar" class="mt-8 space-y-8">
         <section class="rounded-2xl border border-line bg-card p-6">
+            <h2 class="text-2xl font-semibold">Aparência</h2>
+            <p class="mt-1 text-muted">Vale para o painel, o tablet e a TV deste clube.</p>
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                <label class="flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-4 {{ $tema === 'escuro' ? 'border-brand bg-brand/10' : 'border-line bg-canvas' }}">
+                    <input type="radio" wire:model.live="tema" value="escuro" class="text-brand">
+                    <span>
+                        <span class="block text-lg font-bold">Escuro</span>
+                        <span class="text-sm text-muted">Fundo preto, o visual atual</span>
+                    </span>
+                </label>
+                <label class="flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-4 {{ $tema === 'claro' ? 'border-brand bg-brand/10' : 'border-line bg-canvas' }}">
+                    <input type="radio" wire:model.live="tema" value="claro" class="text-brand">
+                    <span>
+                        <span class="block text-lg font-bold">Claro</span>
+                        <span class="text-sm text-muted">Fundo claro para ambientes iluminados</span>
+                    </span>
+                </label>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-line bg-card p-6">
+            <h2 class="text-2xl font-semibold">Reserva no tablet</h2>
+            <p class="mt-1 text-muted">
+                <span class="font-semibold text-white">Tablet:</span> o sócio digita o código e, se você ativar abaixo, olha para a câmera (estilo catraca) até reconhecer.
+                <br>
+                <span class="font-semibold text-white">Secretaria:</span> a recepção confere a foto na tela e confirma — sem câmera.
+            </p>
+            <label class="mt-5 flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-line bg-canvas px-4">
+                <input type="checkbox" wire:model="exigir_facial_tablet" class="h-5 w-5 rounded border-line bg-card">
+                <span class="text-lg">Exigir reconhecimento facial no tablet (sócios)</span>
+            </label>
+        </section>
+        <section class="rounded-2xl border border-line bg-card p-6">
             <h2 class="text-2xl font-semibold">Identidade</h2>
             <div class="mt-6 grid gap-5 sm:grid-cols-2">
                 <label class="block sm:col-span-2">
