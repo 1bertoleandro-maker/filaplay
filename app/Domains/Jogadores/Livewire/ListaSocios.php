@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Jogadores\Livewire;
 
+use App\Domains\Clube\Models\Tenant;
+use App\Domains\Clube\Services\LimitesDoClube;
 use App\Domains\Jogadores\Actions\EnviarConviteFacial;
 use App\Domains\Jogadores\Actions\ImportarSociosPlanilha;
 use App\Domains\Jogadores\Actions\SalvarSocio;
@@ -55,6 +57,8 @@ class ListaSocios extends Component
     public ?int $facialSocioId = null;
 
     public string $facialNome = '';
+
+    public bool $facialTemTelefone = false;
 
     public mixed $faceBalcao = null;
 
@@ -126,6 +130,7 @@ class ListaSocios extends Component
 
         $this->facialSocioId = $socio->id;
         $this->facialNome = $socio->nome;
+        $this->facialTemTelefone = filled($socio->telefone);
         $this->faceBalcao = null;
         $this->resetValidation();
     }
@@ -134,6 +139,7 @@ class ListaSocios extends Component
     {
         $this->facialSocioId = null;
         $this->facialNome = '';
+        $this->facialTemTelefone = false;
         $this->faceBalcao = null;
         $this->resetValidation();
     }
@@ -168,14 +174,25 @@ class ListaSocios extends Component
         session()->flash('status', "Reconhecimento facial de {$socio->nome} cadastrado na secretaria.");
     }
 
-    public function enviarConviteFacial(EnviarConviteFacial $action, int $id): void
+    public function enviarConviteFacial(EnviarConviteFacial $action, int $id): ?string
     {
         $socio = User::query()->findOrFail($id);
         abort_unless(auth()->user()->can('update', $socio), 403);
 
-        $action->handle($socio);
+        $socio = $action->handle($socio);
         $this->fecharFacialBalcao();
-        session()->flash('status', "Enviamos o link de reconhecimento facial para {$socio->nome}.");
+
+        $url = $action->urlWhatsapp($socio);
+
+        if ($url === null) {
+            session()->flash('status', "Enviamos o link por e-mail para {$socio->nome}. Cadastre o telefone dele para abrir o WhatsApp.");
+
+            return null;
+        }
+
+        session()->flash('status', "WhatsApp aberto para {$socio->nome} com o link da facial.");
+
+        return $url;
     }
 
     public function abrirImportacao(): void
@@ -191,6 +208,13 @@ class ListaSocios extends Component
     {
         $this->importarAberto = false;
         $this->planilha = null;
+        $this->resultadoImportacao = null;
+    }
+
+    public function updatedPlanilha(): void
+    {
+        // Nova planilha escolhida: some o resultado da tentativa anterior.
+        $this->resultadoImportacao = null;
     }
 
     public function importar(ImportarSociosPlanilha $action): void
@@ -212,7 +236,8 @@ class ListaSocios extends Component
 
     public function render(): View
     {
-        $query = User::query()->orderBy('nome');
+        // Só sócios (jogadores). Recepção, professores e administradores ficam em "Equipe".
+        $query = User::query()->where('role', UserRole::Jogador)->orderBy('nome');
 
         if ($this->busca !== '') {
             $query->where(function ($q): void {
@@ -222,11 +247,16 @@ class ListaSocios extends Component
             });
         }
 
+        $clube = Tenant::query()->findOrFail(auth()->user()->tenant_id);
+
         return view('domains.jogadores.lista-socios', [
             'socios' => $query->paginate(12),
             'papeis' => UserRole::cases(),
             'niveis' => NivelJogador::cases(),
             'ehAdmin' => auth()->user()->role === UserRole::Administrador,
+            'clube' => $clube,
+            'sociosUsados' => app(LimitesDoClube::class)->sociosUsados($clube),
+            'limiteSocios' => $clube->limite_socios,
         ]);
     }
 

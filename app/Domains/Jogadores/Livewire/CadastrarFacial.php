@@ -35,7 +35,7 @@ class CadastrarFacial extends Component
     public function salvar(): void
     {
         $this->validate([
-            'foto' => ['required', 'image', 'max:4096'],
+            'foto' => ['required', 'image', 'max:12288'],
         ]);
 
         $foto = $this->foto;

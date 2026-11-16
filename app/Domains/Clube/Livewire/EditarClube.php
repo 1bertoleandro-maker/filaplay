@@ -59,6 +59,9 @@ class EditarClube extends Component
 
     public bool $exigir_facial_tablet = false;
 
+    /** Segundos permitidos entre o cadastro de um atleta e o do próximo na mesma reserva. */
+    public int $prazo_cadastro_segundos = 60;
+
     public string $tema = 'escuro';
 
     public function mount(): void
@@ -82,6 +85,7 @@ class EditarClube extends Component
         $this->exibir_logo = (bool) $tenant->exibir_logo;
         $this->exigir_facial_tablet = app(ConfiguracaoService::class)->ativo(ConfiguracaoChave::TABLET_EXIGIR_FACIAL);
         $this->tema = app(ConfiguracaoService::class)->get(ConfiguracaoChave::APARENCIA_TEMA)['tema'] ?? 'escuro';
+        $this->prazo_cadastro_segundos = (int) (app(ConfiguracaoService::class)->get(ConfiguracaoChave::TABLET_PRAZO_CADASTRO_SEGUNDOS)['segundos'] ?? 60);
 
         $grade = $tenant->horario_funcionamento ?? [];
 
@@ -178,6 +182,9 @@ class EditarClube extends Component
         ], $logo);
 
         $config->set(ConfiguracaoChave::TABLET_EXIGIR_FACIAL, ['ativo' => $this->exigir_facial_tablet]);
+        $config->set(ConfiguracaoChave::TABLET_PRAZO_CADASTRO_SEGUNDOS, [
+            'segundos' => max(15, min(600, $this->prazo_cadastro_segundos)),
+        ]);
         $config->set(ConfiguracaoChave::APARENCIA_TEMA, [
             'tema' => $this->tema === 'claro' ? 'claro' : 'escuro',
         ]);

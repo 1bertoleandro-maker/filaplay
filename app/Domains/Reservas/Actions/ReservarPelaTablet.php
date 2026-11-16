@@ -6,19 +6,20 @@ namespace App\Domains\Reservas\Actions;
 
 use App\Domains\Clube\Models\Tenant;
 use App\Domains\Clube\Services\HorarioDoClube;
-use App\Domains\Configuracoes\ConfiguracaoChave;
 use App\Domains\Configuracoes\Services\ConfiguracaoService;
 use App\Domains\Jogadores\Models\User;
 use App\Domains\Partidas\Enums\Modalidade;
 use App\Domains\Presenca\Contracts\FaceRecognitionService;
 use App\Domains\Presenca\Enums\PresencaMetodo;
 use App\Domains\Presenca\Models\Presenca;
+use App\Domains\Quadras\Enums\TipoPiso;
 use App\Domains\Quadras\Models\Bloqueio;
 use App\Domains\Quadras\Models\Quadra;
 use App\Domains\Reservas\Enums\ReservaOrigem;
 use App\Domains\Reservas\Enums\ReservaStatus;
 use App\Domains\Reservas\Models\Reserva;
 use App\Domains\Reservas\Services\GradeAgenda;
+use App\Domains\Reservas\Services\RegistroAtividade;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,8 @@ final class ReservarPelaTablet
         array $fotos = [],
         ReservaOrigem $origem = ReservaOrigem::App,
         bool $presencaFacialJaValidada = false,
+        int $minutosArrumar = 0,
+        bool $liberarBloqueados = false,
     ): Reserva {
         $tenant = $quadra->tenant;
         $codigos = array_values(array_filter([
@@ -81,7 +84,7 @@ final class ReservarPelaTablet
         $jogadores = [];
 
         foreach ($codigos as $indice => $codigo) {
-            $jogador = $this->buscarSocio($tenant->id, $codigo, $indice === 0 ? 'matricula' : 'matricula_parceiro');
+            $jogador = $this->buscarSocio($tenant->id, $codigo, $indice === 0 ? 'matricula' : 'matricula_parceiro', $liberarBloqueados);
 
             if ($validarFacial) {
                 $this->reconhecer($jogador, $fotos[$codigo] ?? $fotos[(string) $jogador->id] ?? null);
@@ -90,11 +93,18 @@ final class ReservarPelaTablet
             $jogadores[] = $jogador;
         }
 
-        $chaveDuracao = $modalidade === Modalidade::Duplas->value
-            ? ConfiguracaoChave::MODALIDADE_DUPLAS_MINUTOS
-            : ConfiguracaoChave::MODALIDADE_SIMPLES_MINUTOS;
+        if ($this->grade->bloqueadaPelaChuva($tenant, $quadra)) {
+            throw ValidationException::withMessages([
+                'quadra' => 'Modo chuva: só quadras cobertas podem ser reservadas.',
+            ]);
+        }
 
-        $duracao = (int) ($this->config->get($chaveDuracao)['minutos'] ?? $duracaoMinutos);
+        // Simples: 60 min (40 na chuva). Duplas: 60 min sempre.
+        $duracao = $this->grade->duracaoDaModalidade($tenant, $modalidade) ?: $duracaoMinutos;
+
+        if ($minutosArrumar > 0 && $quadra->tipo_piso === TipoPiso::Saibro) {
+            $duracao += $minutosArrumar;
+        }
 
         $inicio = $this->resolverInicio($quadra, $tenant, $data, $hora, $duracao);
         $fim = $inicio->copy()->addMinutes($duracao);
@@ -125,6 +135,14 @@ final class ReservarPelaTablet
         }
 
         foreach ($jogadores as $jogador) {
+            $emOutra = Reserva::ocupacaoEmOutraQuadra($jogador, $quadra->id);
+
+            if ($emOutra !== null) {
+                throw ValidationException::withMessages([
+                    'matricula' => $emOutra->mensagemConflitoSocio($jogador),
+                ]);
+            }
+
             $ocupado = Reserva::conflitoDoSocio($jogador, $inicio, $fim);
 
             if ($ocupado !== null) {
@@ -139,7 +157,11 @@ final class ReservarPelaTablet
         $metodo = $usouFacial ? PresencaMetodo::Facial : PresencaMetodo::Tablet;
         $observacao = ($usouFacial ? 'Validado por reconhecimento facial. ' : '').'Reservado por '.$nomes;
 
-        return DB::transaction(function () use ($quadra, $tenant, $jogadores, $inicio, $fim, $observacao, $modalidade, $origem, $metodo): Reserva {
+        if ($minutosArrumar > 0 && $quadra->tipo_piso === TipoPiso::Saibro) {
+            $observacao .= ' Pediu 5 min para arrumar o saibro.';
+        }
+
+        $reserva = DB::transaction(function () use ($quadra, $tenant, $jogadores, $inicio, $fim, $observacao, $modalidade, $origem, $metodo): Reserva {
             $principal = $jogadores[0];
 
             $reserva = Reserva::query()->create([
@@ -170,6 +192,18 @@ final class ReservarPelaTablet
 
             return $reserva->load('jogadores');
         });
+
+        app(RegistroAtividade::class)->registrar(
+            'reserva_criada',
+            'Nova reserva · '.($quadra->apelido ?: $quadra->nome),
+            $inicio->format('H:i').' às '.$fim->format('H:i').' · '.$jogadores[0]->primeiroNome()
+                .collect($jogadores)->slice(1)->map(fn (User $j): string => ', '.$j->primeiroNome())->implode(''),
+            $quadra->id,
+            $jogadores[0]->id,
+            $tenant->id,
+        );
+
+        return $reserva;
     }
 
     private function resolverInicio(
@@ -200,7 +234,11 @@ final class ReservarPelaTablet
         return $this->grade->arredondarParaCinco($pedido);
     }
 
-    private function buscarSocio(int $tenantId, string $matricula, string $campo): User
+    /**
+     * $liberarBloqueados: só a secretaria usa, depois de confirmar o aviso na tela
+     * (sócio bloqueado por pagamento/pendência).
+     */
+    private function buscarSocio(int $tenantId, string $matricula, string $campo, bool $liberarBloqueados = false): User
     {
         $socio = User::query()
             ->where('tenant_id', $tenantId)
@@ -211,7 +249,7 @@ final class ReservarPelaTablet
             throw ValidationException::withMessages([$campo => 'Código não encontrado.']);
         }
 
-        if ($socio->bloqueado) {
+        if ($socio->bloqueado && ! $liberarBloqueados) {
             throw ValidationException::withMessages([$campo => 'Este sócio está bloqueado.']);
         }
 

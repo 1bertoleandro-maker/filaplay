@@ -9,17 +9,12 @@
 
     <form wire:submit="entrar" class="mt-8 rounded-2xl border border-line bg-card p-6">
         <h2 class="text-2xl font-semibold">Adicionar jogador à fila</h2>
-        <div class="mt-4 grid gap-4 sm:grid-cols-4">
+        <p class="mt-1 text-muted">Escolha a quadra e busque pelo nome ou pela matrícula. A secretaria só confere a foto, sem facial.</p>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
             <select wire:model="quadra_id" class="min-h-14 rounded-xl border-line bg-canvas text-lg">
                 <option value="">Quadra</option>
                 @foreach ($quadras as $quadra)
                     <option value="{{ $quadra->id }}">{{ $quadra->nome }}</option>
-                @endforeach
-            </select>
-            <select wire:model="user_id" class="min-h-14 rounded-xl border-line bg-canvas text-lg">
-                <option value="">Sócio</option>
-                @foreach ($socios as $socio)
-                    <option value="{{ $socio->id }}">{{ $socio->nome }} · {{ $socio->matricula }}</option>
                 @endforeach
             </select>
             <select wire:model="modalidade" class="min-h-14 rounded-xl border-line bg-canvas text-lg">
@@ -27,10 +22,53 @@
                     <option value="{{ $m->value }}">{{ $m->label() }} ({{ $m->jogadores() ?? '2-8' }})</option>
                 @endforeach
             </select>
-            <button type="submit" class="min-h-14 rounded-xl bg-brand px-6 text-lg font-semibold text-canvas">Entrar na fila</button>
         </div>
+        <label class="mt-4 block">
+            <span class="text-sm text-muted">Nome ou matrícula</span>
+            <input wire:model.live.debounce.300ms="busca" type="search" placeholder="Ex.: Queiroz ou 7160" class="mt-2 w-full min-h-14 rounded-xl border-line bg-canvas px-4 text-lg">
+        </label>
+        @error('quadra_id') <p class="mt-2 text-red-400">{{ $message }}</p> @enderror
+        @error('user_id') <p class="mt-2 text-red-400">{{ $message }}</p> @enderror
         @error('jogador') <p class="mt-2 text-red-400">{{ $message }}</p> @enderror
         @error('quadra') <p class="mt-2 text-red-400">{{ $message }}</p> @enderror
+
+        @if ($selecionado)
+            <div class="mt-4 flex items-center gap-4 rounded-2xl border border-brand/40 bg-canvas p-4">
+                @if ($selecionado->avatarUrl)
+                    <img src="{{ $selecionado->avatarUrl }}" alt="" class="h-16 w-16 rounded-full object-cover">
+                @else
+                    <span class="flex h-16 w-16 items-center justify-center rounded-full bg-card text-2xl font-bold">{{ mb_substr($selecionado->nome, 0, 1) }}</span>
+                @endif
+                <div>
+                    <p class="text-xl font-bold">{{ $selecionado->nome }}</p>
+                    <p class="text-muted">Matrícula {{ $selecionado->matricula }}</p>
+                </div>
+            </div>
+        @elseif (trim($busca) !== '' && $encontrados->isEmpty())
+            <p class="mt-4 text-muted">Nenhum sócio encontrado.</p>
+        @endif
+
+        @if (trim($busca) !== '' && $encontrados->isNotEmpty())
+            <ul class="mt-4 space-y-2">
+                @foreach ($encontrados as $socio)
+                    <li>
+                        <button type="button" wire:click="escolherSocio({{ $socio->id }})" class="flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-left {{ $selecionado && $selecionado->id === $socio->id ? 'border-brand bg-brand/10' : 'border-line hover:border-brand' }}">
+                            @if ($socio->avatarUrl)
+                                <img src="{{ $socio->avatarUrl }}" alt="" class="h-12 w-12 rounded-full object-cover">
+                            @else
+                                <span class="flex h-12 w-12 items-center justify-center rounded-full bg-canvas font-bold">{{ mb_substr($socio->nome, 0, 1) }}</span>
+                            @endif
+                            <span>
+                                <span class="block font-semibold">{{ $socio->nome }}</span>
+                                <span class="text-sm text-muted">{{ $socio->matricula }}</span>
+                            </span>
+                        </button>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+
+        <button type="submit" class="mt-4 min-h-14 rounded-xl bg-brand px-6 text-lg font-semibold text-canvas">Entrar na fila</button>
     </form>
 
     <div class="mt-8 space-y-6">

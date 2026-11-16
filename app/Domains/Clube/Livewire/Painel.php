@@ -6,6 +6,7 @@ namespace App\Domains\Clube\Livewire;
 
 use App\Domains\Filas\Models\Fila;
 use App\Domains\Filas\Models\NoShow;
+use App\Domains\Jogadores\Enums\UserRole;
 use App\Domains\Jogadores\Models\User;
 use App\Domains\Partidas\Enums\PartidaStatus;
 use App\Domains\Partidas\Models\Partida;
@@ -13,6 +14,7 @@ use App\Domains\Quadras\Enums\QuadraStatus;
 use App\Domains\Quadras\Models\Quadra;
 use App\Domains\Reservas\Enums\ReservaStatus;
 use App\Domains\Reservas\Models\Reserva;
+use App\Http\Middleware\SetTenant;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -20,6 +22,15 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class Painel extends Component
 {
+    public function mount(): void
+    {
+        // Super admin começa pela lista de clubes: escolhe onde vai trabalhar
+        // (evita cadastrar sócios e fotos no clube errado).
+        if (auth()->user()?->super_admin && ! session()->has(SetTenant::CLUBE_ATIVO)) {
+            $this->redirectRoute('admin.clubes');
+        }
+    }
+
     public function render(): View
     {
         $totalQuadras = Quadra::query()->count();
@@ -62,6 +73,9 @@ class Painel extends Component
             'tempoMedioEspera' => $tempoMedioEspera,
             'noShowsHoje' => $noShowsHoje,
             'reservasHoje' => $reservasHoje,
+            'horarioOk' => ! empty(auth()->user()->tenant?->horario_funcionamento),
+            'jogadores' => User::query()->where('role', UserRole::Jogador)->count(),
+            'comFacial' => User::query()->where('cadastro_facial_completo', true)->count(),
         ]);
     }
 }

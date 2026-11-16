@@ -100,3 +100,86 @@ html.tema-claro .bg-white\/5,
 html.tema-claro .bg-white\/10 {
     background-color: rgba(18, 21, 28, .05);
 }
+
+/* ── Tema claro: agenda, linha do tempo "Ao vivo" e botões pequenos ── */
+html.tema-claro .border-white\/10,
+html.tema-claro .border-white\/5 {
+    border-color: rgba(18, 21, 28, .1);
+}
+
+html.tema-claro .ring-white\/5,
+html.tema-claro .ring-white\/10 {
+    --tw-ring-color: rgba(18, 21, 28, .1);
+}
+
+html.tema-claro .bg-black\/25 {
+    background-color: #eef2f6;
+}
+
+/* Amarelo e verde claros somem no fundo branco: usa tons mais fortes só para texto. */
+html.tema-claro .text-accent {
+    color: #b45309;
+}
+
+html.tema-claro .text-brand {
+    color: #16833a;
+}
+
+html.tema-claro .fp-aside {
+    background: #ffffff;
+    color: #12151c;
+    border-color: #d5dbe3;
+    box-shadow: -20px 0 60px rgba(18, 21, 28, .15);
+}
+
+@media (min-width: 1280px) {
+    html.tema-claro .fp-aside {
+        box-shadow: 0 12px 32px rgba(18, 21, 28, .06);
+    }
+}
+
+html.tema-claro .fp-event {
+    background: #f3f5f8;
+    color: #12151c;
+}
+
+html.tema-claro .fp-slot {
+    background: #f3f5f8;
+    color: #12151c;
+}
+
+html.tema-claro .fp-slot.is-now {
+    background: rgba(53, 199, 89, .16);
+}
+
+html.tema-claro .fp-mini {
+    background: #e6eaf0;
+    color: #12151c;
+}
+
+html.tema-claro .fp-mini:hover {
+    background: rgba(53, 199, 89, .3);
+    color: #0f1115;
+}
+
+html.tema-claro .fp-mini-warn {
+    background: rgba(245, 158, 11, .2);
+    color: #92400e;
+}
+
+html.tema-claro .fp-icon-btn {
+    background: #e6eaf0;
+    color: #475569;
+}
+
+html.tema-claro .fp-icon-btn-danger {
+    background: rgba(220, 38, 38, .1);
+    color: #dc2626;
+}
+
+html.tema-claro .fp-court-hero .text-brand,
+html.tema-claro .fp-badge-live,
+html.tema-claro .fp-badge-next,
+html.tema-claro .fp-badge-free {
+    color: #0f1115;
+}

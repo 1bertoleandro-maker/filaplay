@@ -29,7 +29,25 @@
                                 <p style="margin:0 0 8px; font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#35c759;">{{ $nomeClube }}</p>
                             @endif
                             <h1 style="margin:0 0 16px; font-size:20px; color:#111827;">{{ $tituloAssunto }}</h1>
-                            <p style="margin:0; font-size:16px; line-height:1.6; color:#374151; white-space:pre-line;">{{ $corpo }}</p>
+                            @php
+                                preg_match_all('~https?://\S+~', $corpo, $encontrados);
+                                $links = $encontrados[0] ?? [];
+                                $texto = e($corpo);
+                                foreach ($links as $link) {
+                                    $seguro = e($link);
+                                    $texto = str_replace(
+                                        $seguro,
+                                        '<a href="'.$seguro.'" style="color:#15803d; font-weight:700; text-decoration:underline;">'.$seguro.'</a>',
+                                        $texto,
+                                    );
+                                }
+                            @endphp
+                            @if ($links !== [])
+                                <p style="margin:0 0 20px;">
+                                    <a href="{{ $links[0] }}" style="display:inline-block; background-color:#35c759; color:#0f1115; font-size:16px; font-weight:800; text-decoration:none; padding:12px 20px; border-radius:12px;">Abrir cadastro</a>
+                                </p>
+                            @endif
+                            <p style="margin:0; font-size:16px; line-height:1.6; color:#374151;">{!! nl2br($texto) !!}</p>
                         </td>
                     </tr>
                     <tr>

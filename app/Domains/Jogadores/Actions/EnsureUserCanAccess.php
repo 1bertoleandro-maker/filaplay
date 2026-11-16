@@ -6,6 +6,7 @@ namespace App\Domains\Jogadores\Actions;
 
 use App\Domains\Clube\Enums\TenantStatus;
 use App\Domains\Jogadores\Models\User;
+use App\Support\Contato;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
@@ -48,7 +49,9 @@ final class EnsureUserCanAccess
             Auth::logout();
 
             throw ValidationException::withMessages([
-                'form.email' => 'O acesso do seu clube expirou. Fale com o suporte FilaPlay para renovar.',
+                'form.email' => $tenant->teste_gratis
+                    ? 'Seu teste grátis terminou. Fale com '.Contato::rotulo().' para contratar e continuar usando.'
+                    : 'O acesso do seu clube expirou. Fale com '.Contato::rotulo().' para renovar.',
             ]);
         }
     }

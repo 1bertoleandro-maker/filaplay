@@ -1,6 +1,7 @@
 <div
     class="fp-shell"
-    @if (! $painelAberto && $mensagem === '') wire:poll.12s @endif
+    x-data="{ linha: window.innerWidth >= 1280 }"
+    @if (! $painelAberto && $mensagem === '') wire:poll.10s @endif
 >
 <style>
     .fp-shell {
@@ -20,15 +21,58 @@
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        padding: 1rem 1.25rem;
+        padding: .85rem 1.25rem;
         flex-shrink: 0;
+        flex-wrap: wrap;
+    }
+    .fp-main {
+        flex: 1;
+        min-height: 0;
+        display: flex;
     }
     .fp-stage {
         flex: 1;
+        min-width: 0;
         min-height: 0;
         padding: 0 1rem 1rem;
         display: flex;
         flex-direction: column;
+    }
+    .fp-aside {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 35;
+        width: min(22rem, 92vw);
+        display: flex;
+        flex-direction: column;
+        background: #12151b;
+        border-left: 1px solid rgba(255,255,255,.08);
+        box-shadow: -20px 0 60px rgba(0,0,0,.5);
+    }
+    @media (min-width: 1280px) {
+        .fp-aside {
+            position: static;
+            width: 22rem;
+            flex-shrink: 0;
+            margin: 0 1rem 1rem 0;
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 1.5rem;
+            box-shadow: none;
+            overflow: hidden;
+        }
+    }
+    .fp-event {
+        border-radius: 1rem;
+        padding: .7rem .8rem;
+        background: rgba(255,255,255,.04);
+        border-left: 4px solid rgba(255,255,255,.2);
+    }
+    .fp-event.is-new { animation: fp-flash 2.4s ease-out 1; }
+    @keyframes fp-flash {
+        0% { background: rgba(53,199,89,.45); }
+        100% { background: rgba(255,255,255,.04); }
     }
     .fp-overlay {
         position: fixed;
@@ -106,6 +150,22 @@
         gap: .5rem;
     }
     .fp-btn-primary:hover { filter: brightness(1.06); }
+    .fp-tool {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        min-height: 2.75rem;
+        padding: 0 .9rem;
+        border-radius: .9rem;
+        background: rgba(255,255,255,.07);
+        color: #d7dbe2;
+        font-size: .85rem;
+        font-weight: 800;
+        text-decoration: none;
+    }
+    .fp-tool:hover { background: rgba(255,255,255,.14); color: #fff; }
+    .fp-tool-chuva { background: rgba(255,214,10,.16); color: #ffd60a; }
+    .fp-tool-chuva.is-on { background: #ffd60a; color: #0f1115; }
     .fp-choice-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -129,6 +189,8 @@
         font-size: 1.75rem;
         font-weight: 900;
         cursor: pointer;
+        text-align: center;
+        padding: 1rem;
     }
     .fp-choice:hover {
         border-color: rgba(53,199,89,.7);
@@ -212,6 +274,19 @@
         text-align: center;
         box-shadow: 0 30px 80px rgba(0,0,0,.5);
     }
+    .fp-prazo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .6rem;
+        border-radius: 1rem;
+        background: rgba(255,214,10,.14);
+        color: #ffd60a;
+        padding: .7rem 1rem;
+        font-weight: 900;
+    }
+    .fp-prazo.is-urgent { background: rgba(239,68,68,.2); color: #fca5a5; animation: fp-blink 1s ease-in-out infinite; }
+    @keyframes fp-blink { 50% { opacity: .55; } }
 </style>
 
     <header class="fp-top">
@@ -225,9 +300,16 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center justify-end gap-2.5">
+            @if ($chuva)
+                <span class="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-black uppercase text-canvas">
+                    <x-heroicon-o-cloud class="h-5 w-5" />
+                    Chuva · só quadras cobertas · simples {{ $duracoes['simples'] }} min
+                </span>
+            @endif
+
             @if ($podeSecretaria)
-                <div class="hidden rounded-full bg-white/5 p-1 ring-1 ring-white/10 sm:flex">
+                <div class="flex rounded-full bg-white/5 p-1 ring-1 ring-white/10">
                     <button type="button" wire:click="usarModo('tablet')" class="fp-btn rounded-full px-4 py-2 text-sm font-black {{ $modo === 'tablet' ? 'bg-brand text-canvas' : 'text-muted hover:text-white' }}">
                         Tablet
                     </button>
@@ -236,6 +318,34 @@
                     </button>
                 </div>
             @endif
+
+            @if ($modo === 'secretaria')
+                <button type="button"
+                        wire:click="alternarChuva"
+                        @if (! $chuva) wire:confirm="Ligar modo chuva? Só as quadras cobertas ficam liberadas e o simples passa a durar {{ $minutosChuva }} minutos e as duplas continuam {{ $duracoes['duplas'] }}." @endif
+                        class="fp-btn fp-tool fp-tool-chuva {{ $chuva ? 'is-on' : '' }}">
+                    <x-heroicon-o-cloud class="h-5 w-5" />
+                    {{ $chuva ? 'Parou de chover' : 'Choveu' }}
+                </button>
+                <a href="{{ route('bloqueios.index') }}" class="fp-tool" title="Bloquear quadra para torneio, aula ou manutenção">
+                    <x-heroicon-o-no-symbol class="h-5 w-5" />
+                    <span class="hidden md:inline">Bloquear quadra</span>
+                </a>
+                <a href="{{ route('socios.index') }}" class="fp-tool" title="Cadastrar atleta e enviar o link da facial por WhatsApp">
+                    <x-heroicon-o-camera class="h-5 w-5" />
+                    <span class="hidden md:inline">Facial / Atletas</span>
+                </a>
+                <a href="{{ route('dashboard') }}" class="fp-tool" title="Voltar ao painel">
+                    <x-heroicon-o-home class="h-5 w-5" />
+                </a>
+                <button type="button" @click="linha = ! linha" class="fp-btn fp-tool xl:hidden">
+                    <x-heroicon-o-bell-alert class="h-5 w-5" />
+                    Acontecendo
+                </button>
+            @endif
+
+            <x-ajuda-rapida :modo="$modo" wire:key="ajuda-{{ $modo }}" />
+
             <div class="text-right" x-data="{ agora: '{{ $agora->format('H:i') }}' }"
                  x-init="setInterval(() => agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 10000)">
                 <p class="text-4xl font-black tabular-nums leading-none" x-text="agora">{{ $agora->format('H:i') }}</p>
@@ -246,15 +356,58 @@
     </header>
 
     @if ($exigirFacial && $modo === 'tablet')
-        <p class="px-5 pb-2 text-sm font-semibold text-accent">Anti-fraude estilo catraca: digite o código, olhe para a câmera e libera sozinho. Na secretaria basta conferir a foto.</p>
+        <p class="px-5 pb-2 text-sm font-semibold text-accent">Anti-fraude estilo catraca: o rosto precisa bater com o cadastro. Na secretaria basta conferir a foto.</p>
     @endif
 
-    <div class="fp-stage">
-        <x-agenda-quadras :agenda="$agenda" :pode-reservar="true" />
+    <div class="fp-main">
+        <div class="fp-stage">
+            <x-agenda-quadras :agenda="$agenda" :pode-reservar="true" :pode-gerir="$modo === 'secretaria'" />
+        </div>
+
+        @if ($modo === 'secretaria')
+            <aside class="fp-aside" x-show="linha" x-cloak>
+                <div class="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-brand">Ao vivo</p>
+                        <h2 class="text-lg font-black">O que está acontecendo</h2>
+                    </div>
+                    <button type="button" @click="linha = false" class="fp-btn fp-btn-ghost xl:hidden">Fechar</button>
+                </div>
+                <div class="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+                    @forelse ($atividades as $atividade)
+                        @php
+                            $cor = match ($atividade->tipo) {
+                                'reserva_criada' => '#35c759',
+                                'jogador_entrou' => '#38bdf8',
+                                'tempo_extra' => '#ffd60a',
+                                'quadra_liberada' => '#a78bfa',
+                                'reserva_perdida', 'cadastro_expirado' => '#f87171',
+                                'chuva_ligada', 'chuva_desligada', 'reserva_com_pendencia' => '#fbbf24',
+                                default => '#94a3b8',
+                            };
+                        @endphp
+                        <div wire:key="ev-{{ $atividade->id }}" class="fp-event {{ $atividade->created_at->gt(now()->subSeconds(90)) ? 'is-new' : '' }}" style="border-left-color: {{ $cor }}">
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="text-sm font-black leading-snug">{{ $atividade->titulo }}</p>
+                                <span class="shrink-0 text-xs font-bold tabular-nums text-muted">{{ $atividade->created_at->format('H:i') }}</span>
+                            </div>
+                            @if ($atividade->detalhe)
+                                <p class="mt-0.5 text-xs leading-snug text-muted">{{ $atividade->detalhe }}</p>
+                            @endif
+                        </div>
+                    @empty
+                        <div class="flex h-full min-h-[10rem] items-center justify-center rounded-2xl border border-dashed border-white/10 px-4 text-center text-sm text-muted">
+                            Nada por enquanto. Reservas, entradas, perdas e chuva aparecem aqui.
+                        </div>
+                    @endforelse
+                </div>
+            </aside>
+        @endif
     </div>
 
     @if ($mensagem !== '')
-        <div class="fp-toast">
+        <div class="fp-toast" wire:key="toast-{{ md5($mensagem) }}"
+             x-data x-init="setTimeout(() => $wire.limparResultado(), {{ $erro ? 8000 : 5000 }})">
             <div class="fp-toast-card">
                 <div class="{{ $erro ? 'text-red-400' : 'text-brand' }}">
                     @if ($erro)
@@ -277,8 +430,14 @@
                 <div class="fp-sheet-head">
                     <div class="min-w-0">
                         <p class="text-xs font-black uppercase tracking-[0.22em] text-brand">{{ $quadraNome }}</p>
-                        <h2 class="mt-1 text-3xl font-black tracking-tight">Nova reserva</h2>
-                        @if ($modalidade !== '')
+                        <h2 class="mt-1 text-3xl font-black tracking-tight">
+                            {{ $entrarReservaId ? 'Entrar no jogo' : 'Nova reserva' }}
+                        </h2>
+                        @if ($entrarReservaId)
+                            <p class="mt-2 text-sm font-semibold text-muted">
+                                Jogo das {{ $hora }} às {{ $horaFim }} · o horário não muda · {{ $jogoDeEntrada['vagas'] ?? 0 }} vaga(s)
+                            </p>
+                        @elseif ($modalidade !== '')
                             <p class="mt-2 text-sm font-semibold text-muted">
                                 {{ $hora }} – {{ $horaFim }} · {{ $modalidade === 'duplas' ? 'Duplas' : 'Simples' }} · jogador {{ $passoJogador }} de {{ $totalJogadores }}
                             </p>
@@ -290,27 +449,54 @@
                 </div>
 
                 <div class="fp-sheet-body">
-                    @if ($modalidade === '')
+                    @if ($entrarReservaId)
+                        @if (! empty($jogoDeEntrada['jogadores']))
+                            <div class="mb-5 flex flex-wrap items-center gap-2">
+                                <span class="text-xs font-black uppercase tracking-[0.18em] text-muted">Já estão jogando</span>
+                                @foreach ($jogoDeEntrada['jogadores'] as $jogador)
+                                    <span class="fp-chip">
+                                        @if ($jogador['foto'])
+                                            <img src="{{ $jogador['foto'] }}" alt="" class="h-8 w-8 rounded-full object-cover">
+                                        @else
+                                            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-xs font-black text-canvas">{{ $jogador['iniciais'] }}</span>
+                                        @endif
+                                        {{ $jogador['primeiro_nome'] }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        @include('domains.reservas.partials.identificar')
+                    @elseif ($modalidade === '')
                         <div class="rounded-3xl bg-black/30 px-5 py-5 text-center ring-1 ring-white/10">
-                            <p class="text-xs font-black uppercase tracking-[0.2em] text-muted">Horário automático</p>
+                            <p class="text-xs font-black uppercase tracking-[0.2em] text-muted">Seu horário</p>
                             <p class="mt-2 text-5xl font-black tabular-nums text-brand">{{ $hora }} – {{ $horaFim }}</p>
-                            <p class="mt-2 text-sm text-muted">Arredonda a chegada e encadeia no próximo livre da quadra.</p>
+                            <p class="mt-2 text-sm text-muted">Já encadeado no fim do jogo anterior da quadra.</p>
+                            @if ($quadraSaibro)
+                                <label class="mx-auto mt-5 flex max-w-xl items-start gap-3 rounded-2xl bg-accent/15 p-4 text-left">
+                                    <input type="checkbox" wire:model.live="arrumarQuadra" class="mt-1 h-5 w-5 rounded border-line">
+                                    <span>
+                                        <span class="block text-lg font-black">Pedir 5 minutos para arrumar a quadra</span>
+                                        <span class="mt-1 block text-sm text-muted">Só no saibro. O horário fica 5 minutos maior.</span>
+                                    </span>
+                                </label>
+                            @endif
                         </div>
                         <p class="mt-8 text-center text-xl font-black">Como vão jogar?</p>
                         <p class="mt-1 text-center text-sm text-muted">Toque em uma opção para continuar</p>
                         <div class="fp-choice-grid">
                             <button type="button" wire:click="escolherModalidade('simples')" class="fp-btn fp-choice">
                                 Simples
-                                <span>2 jogadores</span>
+                                <span>2 jogadores · {{ $duracoes['simples'] }} min</span>
                             </button>
                             <button type="button" wire:click="escolherModalidade('duplas')" class="fp-btn fp-choice">
                                 Duplas
-                                <span>4 jogadores</span>
+                                <span>4 jogadores · {{ $duracoes['duplas'] }} min</span>
                             </button>
                         </div>
                     @else
                         @if ($jogadores !== [])
-                            <div class="mb-5 flex flex-wrap gap-2">
+                            <div class="mb-5 flex flex-wrap items-center gap-2">
                                 @foreach ($jogadores as $jogador)
                                     <span class="fp-chip">
                                         @if ($jogador['foto'])
@@ -324,116 +510,26 @@
                             </div>
                         @endif
 
+                        @if ($prazoRestante !== null && count($jogadores) < $totalJogadores)
+                            <div wire:key="prazo-{{ $prazoAte }}"
+                                 x-data="{
+                                    resta: {{ (int) $prazoRestante }},
+                                    disparou: false,
+                                    texto() { return Math.floor(this.resta / 60) + ':' + String(this.resta % 60).padStart(2, '0') },
+                                 }"
+                                 x-init="setInterval(() => {
+                                    if (resta > 0) { resta-- }
+                                    else if (! disparou) { disparou = true; $wire.expirarPrazo() }
+                                 }, 1000)"
+                                 class="fp-prazo mb-5"
+                                 :class="resta <= 15 ? 'is-urgent' : ''">
+                                <x-heroicon-o-clock class="h-6 w-6" />
+                                <span>Falta o próximo atleta se cadastrar · <span class="tabular-nums" x-text="texto()"></span></span>
+                            </div>
+                        @endif
+
                         @if (count($jogadores) < $totalJogadores)
-                            @if ($modo === 'secretaria')
-                                <label class="block">
-                                    <span class="text-lg font-bold text-muted">Código ou nome do sócio cadastrado</span>
-                                    <div class="mt-2 flex gap-2">
-                                        <input type="text" wire:model="codigo" wire:keydown.enter.prevent="identificarPorCodigo"
-                                               class="w-full rounded-2xl border-line bg-canvas text-lg" placeholder="Código">
-                                        <button type="button" wire:click="identificarPorCodigo" class="fp-btn rounded-2xl bg-brand px-5 font-black text-canvas">OK</button>
-                                    </div>
-                                </label>
-                                <input type="text" wire:model.live.debounce.300ms="buscaNome"
-                                       class="mt-3 w-full rounded-2xl border-line bg-canvas text-lg" placeholder="Buscar pelo nome">
-                                @if ($busca)
-                                    <div class="mt-3 space-y-2">
-                                        @foreach ($busca as $socio)
-                                            <button type="button" wire:click="escolherSocio({{ $socio['id'] }})"
-                                                    class="fp-btn flex w-full items-center gap-3 rounded-2xl bg-white/5 px-3 py-3 text-left ring-1 ring-white/10 hover:bg-brand/10">
-                                                @if ($socio['foto'])
-                                                    <img src="{{ $socio['foto'] }}" alt="" class="h-12 w-12 rounded-full object-cover">
-                                                @else
-                                                    <span class="flex h-12 w-12 items-center justify-center rounded-full bg-brand font-black text-canvas">{{ $socio['iniciais'] }}</span>
-                                                @endif
-                                                <span>
-                                                    <span class="block font-bold">{{ $socio['nome'] }}</span>
-                                                    <span class="text-sm text-muted">{{ $socio['matricula'] }}</span>
-                                                </span>
-                                            </button>
-                                        @endforeach
-                                    </div>
-                                @endif
-                            @else
-                                <div class="fp-reserve-grid"
-                                     x-data="{
-                                        codigo: @entangle('codigo'),
-                                        digitar(n) { if (this.codigo.length < 10) this.codigo += String(n) },
-                                        apagar() { this.codigo = this.codigo.slice(0, -1) },
-                                     }">
-                                    <div>
-                                        <p class="text-lg font-black">1. Digite o código do sócio</p>
-                                        <p class="mt-1 text-sm text-muted">Somente sócio cadastrado · use o teclado e toque em OK</p>
-                                        <div class="fp-code-box mt-4" x-text="codigo || '—'"></div>
-
-                                        @error('codigo') <p class="mt-3 text-red-400">{{ $message }}</p> @enderror
-                                        @error('buscaNome') <p class="mt-3 text-red-400">{{ $message }}</p> @enderror
-
-                                        @if ($identificado !== [])
-                                            <div class="mt-5 rounded-3xl bg-brand/10 p-5 text-center ring-1 ring-brand/40">
-                                                @if ($identificado['foto'])
-                                                    <img src="{{ $identificado['foto'] }}" alt="{{ $identificado['nome'] }}" class="mx-auto h-20 w-20 rounded-full object-cover ring-4 ring-brand/40">
-                                                @else
-                                                    <span class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand text-2xl font-black text-canvas">{{ $identificado['iniciais'] }}</span>
-                                                @endif
-                                                <p class="mt-3 text-2xl font-black">{{ $identificado['nome'] }}</p>
-
-                                                @if ($exigirFacial)
-                                                    <p class="mt-1 text-sm text-accent font-semibold">Olhe para a câmera — libera sozinho</p>
-                                                    @php
-                                                        $urlFace = $identificado['face'] ?? $identificado['foto'] ?? null;
-                                                    @endphp
-                                                    @if ($urlFace)
-                                                        <div class="mt-4 text-left">
-                                                            <x-reconhecimento-catraca
-                                                                :referencia-url="$urlFace"
-                                                                :nome="$identificado['primeiro_nome']"
-                                                                wire:key="catraca-{{ $identificado['id'] }}-{{ $passoJogador }}"
-                                                            />
-                                                            @error('foto_facial') <p class="mt-2 text-center text-red-400">{{ $message }}</p> @enderror
-                                                        </div>
-                                                    @else
-                                                        <p class="mt-3 text-red-400">Este sócio não tem foto facial cadastrada.</p>
-                                                    @endif
-                                                @else
-                                                    <p class="text-sm text-muted">É essa pessoa?</p>
-                                                    <button type="button" wire:click="confirmarJogador" class="fp-btn fp-btn-primary mt-4">
-                                                        <x-heroicon-o-check class="h-6 w-6" />
-                                                        Sim, continuar
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
-
-                                    <div>
-                                        <div class="fp-pad">
-                                            @foreach ([1,2,3,4,5,6,7,8,9] as $n)
-                                                <button type="button" class="fp-btn fp-pad-key" @click="digitar({{ $n }})">{{ $n }}</button>
-                                            @endforeach
-                                            <button type="button" class="fp-btn fp-pad-key" @click="apagar()">⌫</button>
-                                            <button type="button" class="fp-btn fp-pad-key" @click="digitar(0)">0</button>
-                                            <button type="button" class="fp-btn fp-pad-key fp-pad-ok" wire:click="identificarPorCodigo">OK</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if ($modo === 'secretaria' && $identificado !== [])
-                                <div class="mt-6 rounded-3xl bg-brand/10 p-5 text-center ring-1 ring-brand/40">
-                                    @if ($identificado['foto'])
-                                        <img src="{{ $identificado['foto'] }}" alt="{{ $identificado['nome'] }}" class="mx-auto h-32 w-32 rounded-full object-cover ring-4 ring-brand/40">
-                                    @else
-                                        <span class="mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-brand text-4xl font-black text-canvas">{{ $identificado['iniciais'] }}</span>
-                                    @endif
-                                    <p class="mt-3 text-2xl font-black">{{ $identificado['nome'] }}</p>
-                                    <p class="text-sm text-muted">Confira a foto e confirme — na secretaria não precisa de facial.</p>
-                                    <button type="button" wire:click="confirmarJogador" class="fp-btn fp-btn-primary mt-4">
-                                        <x-heroicon-o-check class="h-6 w-6" />
-                                        Sim, continuar
-                                    </button>
-                                </div>
-                            @endif
+                            @include('domains.reservas.partials.identificar')
                         @else
                             <div class="mx-auto flex max-w-lg flex-col items-center py-8 text-center">
                                 <x-heroicon-o-check-circle class="h-16 w-16 text-brand" />

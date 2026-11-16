@@ -8,6 +8,8 @@ use App\Domains\Clube\Actions\AprovarClube;
 use App\Domains\Clube\Actions\CriarClubePeloAdmin;
 use App\Domains\Clube\Enums\TenantStatus;
 use App\Domains\Clube\Models\Tenant;
+use App\Domains\Clube\Services\LimitesDoClube;
+use App\Http\Middleware\SetTenant;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -27,9 +29,22 @@ class ClubesPendentes extends Component
 
     public string $expira_em = '';
 
+    /** Plano do clube novo criado pelo master. */
+    public bool $teste_gratis = false;
+
+    public string $limite_equipe = '';
+
+    public string $limite_socios = '';
+
     public ?int $editandoExpiracaoId = null;
 
     public string $novaExpiracao = '';
+
+    public bool $novoTeste = false;
+
+    public string $novoLimiteEquipe = '';
+
+    public string $novoLimiteSocios = '';
 
     public function mount(): void
     {
@@ -38,7 +53,8 @@ class ClubesPendentes extends Component
 
     public function novoCliente(): void
     {
-        $this->reset(['nome_clube', 'nome_responsavel', 'email', 'telefone', 'expira_em']);
+        $this->reset(['nome_clube', 'nome_responsavel', 'email', 'telefone', 'expira_em', 'teste_gratis', 'limite_socios']);
+        $this->limite_equipe = (string) config('filaplay.equipe_padrao');
         $this->resetValidation();
         $this->formAberto = true;
     }
@@ -51,6 +67,9 @@ class ClubesPendentes extends Component
             'email' => $this->email,
             'telefone' => $this->telefone !== '' ? $this->telefone : null,
             'expira_em' => $this->expira_em !== '' ? $this->expira_em : null,
+            'teste_gratis' => $this->teste_gratis,
+            'limite_equipe' => $this->limite_equipe !== '' ? $this->limite_equipe : null,
+            'limite_socios' => $this->limite_socios !== '' ? $this->limite_socios : null,
         ]);
 
         $this->formAberto = false;
@@ -68,6 +87,10 @@ class ClubesPendentes extends Component
         $tenant = Tenant::query()->findOrFail($tenantId);
         $this->editandoExpiracaoId = $tenantId;
         $this->novaExpiracao = $tenant->expira_em?->format('Y-m-d') ?? '';
+        $this->novoTeste = (bool) $tenant->teste_gratis;
+        $this->novoLimiteEquipe = (string) ($tenant->limite_equipe ?? '');
+        $this->novoLimiteSocios = (string) ($tenant->limite_socios ?? '');
+        $this->resetValidation();
     }
 
     public function salvarExpiracao(CriarClubePeloAdmin $action): void
@@ -76,10 +99,13 @@ class ClubesPendentes extends Component
 
         $action->atualizarExpiracao(auth()->user(), $tenant, [
             'expira_em' => $this->novaExpiracao !== '' ? $this->novaExpiracao : null,
+            'teste_gratis' => $this->novoTeste,
+            'limite_equipe' => $this->novoLimiteEquipe !== '' ? $this->novoLimiteEquipe : null,
+            'limite_socios' => $this->novoLimiteSocios !== '' ? $this->novoLimiteSocios : null,
         ]);
 
         $this->editandoExpiracaoId = null;
-        session()->flash('status', 'Validade atualizada.');
+        session()->flash('status', 'Plano do clube atualizado.');
     }
 
     public function cancelarEdicaoExpiracao(): void
@@ -103,9 +129,26 @@ class ClubesPendentes extends Component
 
     public function render(): View
     {
+        $clubes = Tenant::query()->orderByDesc('created_at')->get();
+        $limites = app(LimitesDoClube::class);
+
+        $uso = $clubes->mapWithKeys(fn (Tenant $clube): array => [$clube->id => $limites->resumo($clube)]);
+
+        $resumo = [
+            'clubes' => $clubes->count(),
+            'em_teste' => $clubes->filter(fn (Tenant $c): bool => $c->emTeste())->count(),
+            'pagantes' => $clubes->filter(fn (Tenant $c): bool => ! $c->teste_gratis && $c->status === TenantStatus::Ativo && ! $c->expirado())->count(),
+            'vencidos' => $clubes->filter(fn (Tenant $c): bool => $c->expirado() || $c->status === TenantStatus::Bloqueado)->count(),
+            'socios' => $uso->sum('socios_usados'),
+            'equipe' => $uso->sum('equipe_usada'),
+        ];
+
         return view('domains.clube.clubes-pendentes', [
-            'clubes' => Tenant::query()->orderByDesc('created_at')->get(),
+            'clubes' => $clubes,
+            'uso' => $uso,
+            'resumo' => $resumo,
             'statusEnum' => TenantStatus::class,
+            'clubeAtivoId' => session(SetTenant::CLUBE_ATIVO),
         ]);
     }
 }

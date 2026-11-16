@@ -111,12 +111,31 @@ class Reserva extends Model
             ->first();
     }
 
+    /**
+     * Reserva confirmada que ainda não acabou, em outra quadra.
+     * O mesmo jogador não entra em duas quadras ao mesmo tempo.
+     */
+    public static function ocupacaoEmOutraQuadra(User $socio, ?int $quadraId = null): ?self
+    {
+        return static::query()
+            ->with('quadra')
+            ->confirmadas()
+            ->where('fim', '>', now())
+            ->when($quadraId !== null, fn (Builder $q): Builder => $q->where('quadra_id', '!=', $quadraId))
+            ->where(function (Builder $q) use ($socio): void {
+                $q->where('user_id', $socio->id)
+                    ->orWhereHas('jogadores', fn (Builder $j): Builder => $j->where('users.id', $socio->id));
+            })
+            ->orderBy('inicio')
+            ->first();
+    }
+
     public function mensagemConflitoSocio(User $socio): string
     {
         $quadra = $this->quadra?->apelido ?: $this->quadra?->nome ?: 'outra quadra';
 
         return sprintf(
-            '%s ainda está na %s até %s. Só pode reservar de novo depois que o horário acabar.',
+            '%s está na fila da quadra %s até %s.',
             $socio->primeiroNome(),
             $quadra,
             $this->fim->format('H:i'),

@@ -42,6 +42,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'foto_path',
         'face_photo_path',
+        'face_descriptor',
         'status',
         'nivel',
         'bloqueado',
@@ -71,7 +72,18 @@ class User extends Authenticatable implements MustVerifyEmail
             'nivel' => NivelJogador::class,
             'super_admin' => 'boolean',
             'convite_enviado_em' => 'datetime',
+            'face_descriptor' => 'array',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Foto nova = vetor facial antigo não vale mais; o tablet recalcula sozinho.
+        static::saving(function (self $user): void {
+            if ($user->isDirty('face_photo_path') && ! $user->isDirty('face_descriptor')) {
+                $user->face_descriptor = null;
+            }
+        });
     }
 
     protected static function newFactory(): UserFactory

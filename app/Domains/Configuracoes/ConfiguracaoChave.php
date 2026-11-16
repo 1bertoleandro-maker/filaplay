@@ -24,6 +24,9 @@ final class ConfiguracaoChave
 
     public const TABLET_EXIGIR_FACIAL = 'tablet.exigir_reconhecimento_facial';
 
+    /** Tempo máximo entre o cadastro de um atleta e o do próximo na mesma reserva. */
+    public const TABLET_PRAZO_CADASTRO_SEGUNDOS = 'tablet.prazo_cadastro_segundos';
+
     public const APARENCIA_TEMA = 'aparencia.tema';
 
     /**
@@ -41,6 +44,7 @@ final class ConfiguracaoChave
             self::CHUVA_DURACAO_MINUTOS => ['minutos' => 40],
             self::CANCELAMENTO_ANTECEDENCIA_HORAS => ['horas' => 2],
             self::TABLET_EXIGIR_FACIAL => ['ativo' => false],
+            self::TABLET_PRAZO_CADASTRO_SEGUNDOS => ['segundos' => 60],
             self::APARENCIA_TEMA => ['tema' => 'escuro'],
         ];
     }

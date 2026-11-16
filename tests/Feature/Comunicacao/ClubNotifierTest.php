@@ -29,6 +29,17 @@ test('notificador envia e-mail de verdade pelo mailer configurado', function () 
     Mail::assertSent(ComunicacaoMail::class);
 });
 
+test('e-mail deixa o endereco do cadastro clicavel', function () {
+    $html = (new ComunicacaoMail(
+        tituloAssunto: 'Confirme seu acesso ao FilaPlay',
+        corpo: 'Acesse https://filaplay.gotreino.com/confirmar-cadastro/abc para definir sua senha.',
+        nomeClube: 'MESC',
+    ))->render();
+
+    expect($html)->toContain('href="https://filaplay.gotreino.com/confirmar-cadastro/abc"')
+        ->and($html)->toContain('Abrir cadastro');
+});
+
 test('notificador registra whatsapp sem enviar para fora (sem api conectada ainda)', function () {
     $tenant = Tenant::factory()->create();
 

@@ -84,6 +84,6 @@ new #[Layout('layouts.guest')] class extends Component
 
     <p class="mt-8 text-center text-lg text-muted">
         Seu clube ainda não usa o FilaPlay?
-        <a href="{{ route('clube.cadastrar') }}" class="font-semibold text-brand">Cadastre aqui</a>
+        <a href="{{ route('clube.cadastrar') }}" class="font-semibold text-brand">Teste grátis por {{ config('filaplay.dias_teste') }} dias</a>
     </p>
 </div>

@@ -44,6 +44,29 @@ final class GradeAgenda
     }
 
     /**
+     * Duração oficial de cada modalidade.
+     * Chuva: simples encurta (40 min); duplas continuam com a duração normal.
+     */
+    public function duracaoDaModalidade(Tenant $tenant, string $modalidade): int
+    {
+        if ($modalidade === 'duplas') {
+            return (int) ($this->config->get(ConfiguracaoChave::MODALIDADE_DUPLAS_MINUTOS)['minutos'] ?? 60);
+        }
+
+        if ($tenant->modo_chuva) {
+            return (int) ($this->config->get(ConfiguracaoChave::CHUVA_DURACAO_MINUTOS)['minutos'] ?? 40);
+        }
+
+        return $this->duracaoPadraoMinutos();
+    }
+
+    /** Na chuva, quadra descoberta não pode receber reservas. */
+    public function bloqueadaPelaChuva(Tenant $tenant, Quadra $quadra): bool
+    {
+        return $tenant->modo_chuva && ! $quadra->coberta;
+    }
+
+    /**
      * Sugere o início da próxima reserva na quadra (regra de ouro).
      */
     public function proximoInicioDisponivel(
@@ -97,7 +120,7 @@ final class GradeAgenda
     {
         $dia = Carbon::parse(($dia ?? now())->toDateString())->startOfDay();
         $agora = now();
-        $duracao = $this->duracaoPadraoMinutos();
+        $duracao = $this->duracaoDaModalidade($tenant, 'simples');
         $limiteAgenda = $agora->copy()->subHours(2);
 
         // Eager load moderno: só o que a TV/tablet precisa ver.
@@ -122,12 +145,14 @@ final class GradeAgenda
             );
             $proxima = $doDia->first(fn (Reserva $item): bool => $item->inicio->gt($agora));
 
-            $bloqueadaAgora = $quadra->bloqueios->contains(
+            $bloqueioAtual = $quadra->bloqueios->first(
                 fn (Bloqueio $bloqueio): bool => $bloqueio->inicio->lte($agora) && $bloqueio->fim->gt($agora)
             );
 
+            $chuva = $this->bloqueadaPelaChuva($tenant, $quadra);
+
             $status = match (true) {
-                $bloqueadaAgora => 'bloqueada',
+                $bloqueioAtual !== null, $chuva && $atual === null => 'bloqueada',
                 $atual !== null => 'em_jogo',
                 $proxima !== null && $proxima->inicio->diffInMinutes($agora) <= 60 => 'proximo',
                 default => 'livre',
@@ -160,7 +185,20 @@ final class GradeAgenda
                 'duracao' => $atual ? max(1, $atual->fim->getTimestamp() - $atual->inicio->getTimestamp()) : null,
                 'proximo_livre' => $proximoLivre?->format('H:i'),
                 'proximo_livre_fim' => $proximoLivre?->copy()->addMinutes($duracao)->format('H:i'),
-                'pode_reservar_agora' => $proximoLivre !== null && ! $bloqueadaAgora,
+                'pode_reservar_agora' => $proximoLivre !== null && $bloqueioAtual === null && ! $chuva,
+                'bloqueio' => match (true) {
+                    $bloqueioAtual !== null => [
+                        'tipo' => $bloqueioAtual->tipo->label(),
+                        'motivo' => $bloqueioAtual->motivo,
+                        'ate' => $bloqueioAtual->fim->format('H:i'),
+                    ],
+                    $chuva && $atual === null => [
+                        'tipo' => 'Chuva',
+                        'motivo' => 'só quadras cobertas',
+                        'ate' => null,
+                    ],
+                    default => null,
+                },
                 'timeline' => $timeline,
             ];
         });

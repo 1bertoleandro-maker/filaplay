@@ -34,6 +34,9 @@ class Tenant extends Model
         'status',
         'aprovado_em',
         'expira_em',
+        'teste_gratis',
+        'limite_equipe',
+        'limite_socios',
         'logo',
         'exibir_logo',
         'endereco',
@@ -57,6 +60,9 @@ class Tenant extends Model
             'status' => TenantStatus::class,
             'aprovado_em' => 'datetime',
             'expira_em' => 'datetime',
+            'teste_gratis' => 'boolean',
+            'limite_equipe' => 'integer',
+            'limite_socios' => 'integer',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'raio_gps_metros' => 'integer',
@@ -141,6 +147,23 @@ class Tenant extends Model
     public function expirado(): bool
     {
         return $this->expira_em !== null && $this->expira_em->isPast();
+    }
+
+    /** Clube em período de teste grátis que ainda não venceu. */
+    public function emTeste(): bool
+    {
+        return $this->teste_gratis && ! $this->expirado();
+    }
+
+    /** Dias que faltam para o acesso vencer (null = sem prazo). */
+    public function diasRestantes(): ?int
+    {
+        if ($this->expira_em === null) {
+            return null;
+        }
+
+        // Conta em dias de calendário: o último dia de acesso vale até a meia-noite.
+        return max(0, (int) now()->startOfDay()->diffInDays($this->expira_em->copy()->startOfDay(), false));
     }
 
     public function enderecoCompleto(): string

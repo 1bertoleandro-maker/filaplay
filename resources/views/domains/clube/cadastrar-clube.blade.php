@@ -4,17 +4,20 @@
             <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/15 text-brand">
                 <x-heroicon-o-check-circle class="h-10 w-10" />
             </span>
-            <h1 class="mt-4 text-2xl font-bold">Cadastro enviado!</h1>
+            <h1 class="mt-4 text-2xl font-bold">Seu clube está pronto!</h1>
             <p class="mt-3 text-lg text-muted">
-                Nossa equipe vai analisar os dados do seu clube. Você recebe um e-mail assim que o acesso for liberado.
+                Seu teste grátis de {{ config('filaplay.dias_teste') }} dias já começou. Entre com o e-mail e a senha que você acabou de criar
+                e cadastre quadras, equipe e sócios.
             </p>
             <a href="{{ route('login') }}" class="mt-6 inline-flex min-h-14 items-center justify-center rounded-2xl bg-brand px-8 text-lg font-semibold text-canvas">
-                Voltar para o login
+                Entrar no painel
             </a>
         </div>
     @else
-        <h1 class="text-2xl font-bold">Cadastre seu clube</h1>
-        <p class="mt-2 text-lg text-muted">Leva menos de 1 minuto. Depois é só aguardar a liberação.</p>
+        <h1 class="text-2xl font-bold">Teste grátis por {{ config('filaplay.dias_teste') }} dias</h1>
+        <p class="mt-2 text-lg text-muted">
+            Cadastre seu clube em menos de 1 minuto e já comece a usar. Depois do teste, é só falar com {{ \App\Support\Contato::rotulo() }} para contratar.
+        </p>
 
         @if (! $google_id)
             <a href="{{ route('auth.google.redirect') }}"
@@ -67,7 +70,7 @@
             @endunless
 
             <button type="submit" class="min-h-14 w-full rounded-2xl bg-brand text-xl font-semibold text-canvas">
-                Cadastrar meu clube
+                Começar meu teste grátis
             </button>
         </form>
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Jogadores\Actions;
 
+use App\Domains\Clube\Models\Tenant;
+use App\Domains\Clube\Services\LimitesDoClube;
 use App\Domains\Jogadores\Enums\NivelJogador;
 use App\Domains\Jogadores\Enums\UserRole;
 use App\Domains\Jogadores\Enums\UserStatus;
@@ -68,6 +70,14 @@ final class SalvarSocio
             throw ValidationException::withMessages([
                 'role' => 'Somente o administrador cadastra outro administrador.',
             ]);
+        }
+
+        // Limite do plano (definido pelo master): vale para cadastro novo e para troca entre equipe e sócio.
+        $limites = app(LimitesDoClube::class);
+        $clube = Tenant::query()->find($actor->tenant_id);
+
+        if ($clube !== null && ($socio === null || $limites->ehEquipe($socio->role) !== $limites->ehEquipe($papel))) {
+            $limites->garantirVaga($clube, $papel);
         }
 
         $ehNovo = $socio === null;

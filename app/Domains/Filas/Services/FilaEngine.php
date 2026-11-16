@@ -18,7 +18,7 @@ use App\Domains\Presenca\Models\Presenca;
 use App\Domains\Quadras\Enums\QuadraStatus;
 use App\Domains\Quadras\Models\Bloqueio;
 use App\Domains\Quadras\Models\Quadra;
-use Illuminate\Support\Carbon;
+use App\Domains\Reservas\Services\RegistroAtividade;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -34,13 +34,16 @@ final class FilaEngine
     /**
      * Jogador entra na fila de uma quadra para uma modalidade.
      */
-    public function entrar(Quadra $quadra, User $jogador, Modalidade $modalidade): Fila
+    public function entrar(Quadra $quadra, User $jogador, Modalidade $modalidade, bool $pelaSecretaria = false): Fila
     {
         $tenant = $quadra->tenant;
 
         $this->garantirQuadraDisponivelParaFila($tenant, $quadra);
         $this->garantirSemDuplicidade($jogador);
-        $this->garantirPresencaValidada($jogador);
+
+        if (! $pelaSecretaria) {
+            $this->garantirPresencaValidada($jogador);
+        }
 
         $posicao = (int) Fila::query()
             ->where('quadra_id', $quadra->id)
@@ -273,7 +276,17 @@ final class FilaEngine
 
     public function alternarModoChuva(Tenant $tenant, bool $ativo): void
     {
+        $mudou = $tenant->modo_chuva !== $ativo;
         $tenant->update(['modo_chuva' => $ativo]);
+
+        if ($mudou) {
+            app(RegistroAtividade::class)->registrar(
+                $ativo ? 'chuva_ligada' : 'chuva_desligada',
+                $ativo ? 'Modo chuva ligado' : 'Modo chuva desligado',
+                $ativo ? 'Só quadras cobertas. Simples 40 min, duplas 60 min.' : 'Todas as quadras liberadas.',
+                tenantId: $tenant->id,
+            );
+        }
 
         if ($ativo) {
             $quadras = Quadra::query()->where('coberta', false)->get();
@@ -332,11 +345,8 @@ final class FilaEngine
 
     private function duracaoModalidade(Tenant $tenant, Modalidade $modalidade, Quadra $quadra): int
     {
-        if ($tenant->modo_chuva && ! $quadra->coberta) {
-            return (int) ($this->config->get(ConfiguracaoChave::CHUVA_DURACAO_MINUTOS)['minutos'] ?? 40);
-        }
-
-        if ($tenant->modo_chuva) {
+        // Na chuva só o simples encurta (40 min); duplas continuam com a duração normal.
+        if ($tenant->modo_chuva && $modalidade === Modalidade::Simples) {
             return (int) ($this->config->get(ConfiguracaoChave::CHUVA_DURACAO_MINUTOS)['minutos'] ?? 40);
         }
 
@@ -347,7 +357,7 @@ final class FilaEngine
             Modalidade::Ranking => ConfiguracaoChave::MODALIDADE_RANKING_MINUTOS,
         };
 
-        $padrao = Modalidade::Octeto === $modalidade ? 120 : 60;
+        $padrao = $modalidade === Modalidade::Octeto ? 120 : 60;
 
         return (int) ($this->config->get($chave)['minutos'] ?? $padrao);
     }
@@ -375,12 +385,17 @@ final class FilaEngine
     private function garantirSemDuplicidade(User $jogador): void
     {
         $emOutraFila = Fila::query()
+            ->with('quadra')
             ->where('user_id', $jogador->id)
             ->whereIn('status', [FilaStatus::Aguardando, FilaStatus::Chamado, FilaStatus::Jogando])
-            ->exists();
+            ->first();
 
-        if ($emOutraFila) {
-            throw ValidationException::withMessages(['jogador' => 'Você já está em uma fila.']);
+        if ($emOutraFila !== null) {
+            $nomeQuadra = $emOutraFila->quadra?->apelido ?: $emOutraFila->quadra?->nome ?: 'outra';
+
+            throw ValidationException::withMessages([
+                'jogador' => $jogador->primeiroNome().' está na fila da quadra '.$nomeQuadra.'.',
+            ]);
         }
     }
 

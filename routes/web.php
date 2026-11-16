@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Clube\Http\ClubeAtivoController;
 use App\Domains\Clube\Livewire\CadastrarClube;
 use App\Domains\Clube\Livewire\ClubesPendentes;
 use App\Domains\Clube\Livewire\EditarClube;
@@ -9,10 +10,11 @@ use App\Domains\Filas\Livewire\ListaFilas;
 use App\Domains\Jogadores\Http\SociosPlanilhaController;
 use App\Domains\Jogadores\Livewire\CadastrarFacial;
 use App\Domains\Jogadores\Livewire\ConfirmarCadastro;
+use App\Domains\Jogadores\Livewire\ListaEquipe;
 use App\Domains\Jogadores\Livewire\ListaSocios;
-use App\Domains\Quadras\Http\PainelTvController;
 use App\Domains\Quadras\Livewire\ListaBloqueios;
 use App\Domains\Quadras\Livewire\ListaQuadras;
+use App\Domains\Quadras\Livewire\PainelTv;
 use App\Domains\Reservas\Livewire\ListaReservas;
 use App\Domains\Reservas\Livewire\ReservaTablet;
 use App\Http\Controllers\Auth\GoogleAuthController;
@@ -32,10 +34,20 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::get('dashboard', Painel::class)->name('dashboard');
     Route::view('profile', 'profile')->name('profile');
+    Route::view('ajuda', 'ajuda')->name('ajuda');
 
     Route::get('admin/clubes', ClubesPendentes::class)
         ->middleware('superadmin')
         ->name('admin.clubes');
+
+    Route::post('admin/clubes/sair', [ClubeAtivoController::class, 'sair'])
+        ->middleware('superadmin')
+        ->name('admin.clubes.sair');
+
+    Route::post('admin/clubes/{tenant}/entrar', [ClubeAtivoController::class, 'entrar'])
+        ->middleware('superadmin')
+        ->whereNumber('tenant')
+        ->name('admin.clubes.entrar');
 
     Route::get('clube', EditarClube::class)
         ->middleware('role:administrador,recepcao')
@@ -44,6 +56,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('quadras', ListaQuadras::class)
         ->middleware('role:administrador,recepcao,professor')
         ->name('quadras.index');
+
+    Route::get('equipe', ListaEquipe::class)
+        ->middleware('role:administrador')
+        ->name('equipe.index');
 
     Route::get('socios', ListaSocios::class)
         ->middleware('role:administrador,recepcao')
@@ -69,7 +85,7 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('role:administrador,recepcao,professor')
         ->name('filas.index');
 
-    Route::get('tv', PainelTvController::class)
+    Route::get('tv', PainelTv::class)
         ->middleware('role:administrador,recepcao,professor')
         ->name('tv.painel');
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Clube\Models\Tenant;
 use App\Domains\Filas\Enums\FilaStatus;
+use App\Domains\Filas\Livewire\ListaFilas;
 use App\Domains\Filas\Models\Fila;
 use App\Domains\Filas\Models\NoShow;
 use App\Domains\Filas\Services\FilaEngine;
@@ -18,6 +19,7 @@ use App\Domains\Quadras\Models\Bloqueio;
 use App\Domains\Quadras\Models\Quadra;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 
 function clubeParaFila(bool $coberta = true): array
 {
@@ -100,6 +102,33 @@ test('jogador nao pode entrar em duas filas nem sem presenca validada', function
 
     expect(fn () => $engine->entrar($outraQuadra, $jogador, Modalidade::Simples))
         ->toThrow(ValidationException::class);
+});
+
+test('secretaria coloca o socio na fila pelo codigo sem presenca e sem facial', function () {
+    [$tenant, $quadra] = clubeParaFila();
+    $recepcao = User::factory()->recepcao()->create(['tenant_id' => $tenant->id]);
+    $socio = User::factory()->create([
+        'tenant_id' => $tenant->id,
+        'nome' => 'Queiroz',
+        'matricula' => '7160',
+        'cadastro_facial_completo' => false,
+        'face_photo_path' => null,
+    ]);
+
+    Livewire::actingAs($recepcao)
+        ->test(ListaFilas::class)
+        ->call('entrar')
+        ->assertHasErrors(['quadra_id', 'user_id']);
+
+    Livewire::actingAs($recepcao)
+        ->test(ListaFilas::class)
+        ->set('quadra_id', $quadra->id)
+        ->set('busca', '7160')
+        ->set('modalidade', Modalidade::Simples->value)
+        ->call('entrar')
+        ->assertHasNoErrors();
+
+    expect(Fila::query()->where('user_id', $socio->id)->first()->status)->toBe(FilaStatus::Aguardando);
 });
 
 test('bloqueio ativo impede entrada e chamada na quadra', function () {

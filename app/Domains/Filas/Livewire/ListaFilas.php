@@ -24,6 +24,8 @@ class ListaFilas extends Component
 
     public ?int $user_id = null;
 
+    public string $busca = '';
+
     public string $modalidade = 'duplas';
 
     public function mount(FilaEngine $engine): void
@@ -37,15 +39,70 @@ class ListaFilas extends Component
         $engine->processarNoShows(auth()->user()->tenant);
     }
 
+    public function updatedBusca(): void
+    {
+        $this->resetErrorBag('user_id');
+        $termo = trim($this->busca);
+
+        if ($termo === '') {
+            $this->user_id = null;
+
+            return;
+        }
+
+        $exato = User::query()
+            ->where('bloqueado', false)
+            ->where('matricula', $termo)
+            ->first();
+
+        $this->user_id = $exato?->id;
+    }
+
+    public function escolherSocio(int $id): void
+    {
+        $socio = User::query()->where('bloqueado', false)->find($id);
+
+        if ($socio === null) {
+            $this->addError('user_id', 'Sócio não encontrado.');
+
+            return;
+        }
+
+        $this->user_id = $socio->id;
+        $this->busca = $socio->nome;
+    }
+
     public function entrar(FilaEngine $engine): void
     {
-        $quadra = Quadra::query()->findOrFail((int) $this->quadra_id);
-        $socio = User::query()->findOrFail((int) $this->user_id);
+        $this->validate([
+            'quadra_id' => ['required', 'integer'],
+            'user_id' => ['required', 'integer'],
+            'modalidade' => ['required'],
+        ], [
+            'quadra_id.required' => 'Escolha a quadra.',
+            'user_id.required' => 'Busque a pessoa pelo nome ou digite a matrícula.',
+        ]);
 
-        $engine->entrar($quadra, $socio, Modalidade::from($this->modalidade));
+        $quadra = Quadra::query()->find($this->quadra_id);
+        $socio = User::query()->where('bloqueado', false)->find($this->user_id);
 
-        $this->user_id = null;
-        session()->flash('status', 'Jogador adicionado à fila.');
+        if ($quadra === null) {
+            $this->addError('quadra_id', 'Quadra não encontrada.');
+
+            return;
+        }
+
+        if ($socio === null) {
+            $this->addError('user_id', 'Sócio não encontrado.');
+
+            return;
+        }
+
+        $engine->entrar($quadra, $socio, Modalidade::from($this->modalidade), pelaSecretaria: true);
+
+        $nome = $socio->nome;
+        $this->reset('user_id', 'busca');
+        session()->flash('status', "{$nome} entrou na fila. Sem facial: a secretaria conferiu a foto.");
     }
 
     public function sair(FilaEngine $engine, int $filaId): void
@@ -107,10 +164,24 @@ class ListaFilas extends Component
             'partida' => $partidasAtivas->get($quadra->id),
         ]);
 
+        $termo = trim($this->busca);
+        $encontrados = $termo === ''
+            ? collect()
+            : User::query()
+                ->where('bloqueado', false)
+                ->where(function ($consulta) use ($termo): void {
+                    $consulta->where('nome', 'like', '%'.$termo.'%')
+                        ->orWhere('matricula', 'like', '%'.$termo.'%');
+                })
+                ->orderBy('nome')
+                ->limit(8)
+                ->get();
+
         return view('domains.filas.lista-filas', [
             'quadrasComFila' => $quadrasComFila,
             'quadras' => $quadras,
-            'socios' => User::query()->where('bloqueado', false)->orderBy('nome')->get(),
+            'encontrados' => $encontrados,
+            'selecionado' => $this->user_id ? User::query()->find($this->user_id) : null,
             'modalidades' => Modalidade::cases(),
         ]);
     }

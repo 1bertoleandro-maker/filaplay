@@ -38,6 +38,9 @@ final class CriarClubePeloAdmin
             'email' => ['required', 'email', 'max:255', 'unique:tenants,email', 'unique:users,email'],
             'telefone' => ['nullable', 'string', 'max:32'],
             'expira_em' => ['nullable', 'date'],
+            'teste_gratis' => ['nullable', 'boolean'],
+            'limite_equipe' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'limite_socios' => ['nullable', 'integer', 'min:1', 'max:100000'],
         ])->validate();
 
         return DB::transaction(function () use ($validados, $master): Tenant {
@@ -46,6 +49,9 @@ final class CriarClubePeloAdmin
                 'status' => TenantStatus::Ativo,
                 'aprovado_em' => now(),
                 'expira_em' => $validados['expira_em'] ?? null,
+                'teste_gratis' => (bool) ($validados['teste_gratis'] ?? false),
+                'limite_equipe' => filled($validados['limite_equipe'] ?? null) ? (int) $validados['limite_equipe'] : (int) config('filaplay.equipe_padrao'),
+                'limite_socios' => filled($validados['limite_socios'] ?? null) ? (int) $validados['limite_socios'] : null,
                 'email' => $validados['email'],
                 'telefone' => $validados['telefone'] ?? null,
                 'raio_gps_metros' => 150,
@@ -85,9 +91,26 @@ final class CriarClubePeloAdmin
 
         $validados = Validator::make($dados, [
             'expira_em' => ['nullable', 'date'],
+            'teste_gratis' => ['nullable', 'boolean'],
+            'limite_equipe' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'limite_socios' => ['nullable', 'integer', 'min:1', 'max:100000'],
+        ], [
+            'limite_equipe.min' => 'O limite de equipe precisa ser pelo menos 1.',
+            'limite_socios.min' => 'O limite de sócios precisa ser pelo menos 1.',
         ])->validate();
 
-        $tenant->update(['expira_em' => $validados['expira_em'] ?? null]);
+        $campos = ['expira_em' => $validados['expira_em'] ?? null];
+
+        // Só mexe no plano quando o formulário do master enviou esses campos.
+        foreach (['teste_gratis', 'limite_equipe', 'limite_socios'] as $campo) {
+            if (array_key_exists($campo, $dados)) {
+                $campos[$campo] = $campo === 'teste_gratis'
+                    ? (bool) ($validados[$campo] ?? false)
+                    : (filled($validados[$campo] ?? null) ? (int) $validados[$campo] : null);
+            }
+        }
+
+        $tenant->update($campos);
 
         return $tenant->fresh();
     }

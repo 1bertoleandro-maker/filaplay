@@ -1,5 +1,6 @@
 import './bootstrap';
 import './facial-catraca';
+import './tv-alertas';
 
 document.addEventListener('livewire:init', () => {
     Livewire.hook('request', ({ fail }) => {

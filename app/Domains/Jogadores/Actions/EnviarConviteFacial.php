@@ -47,4 +47,33 @@ final class EnviarConviteFacial
 
         return $usuario->fresh();
     }
+
+    public function urlWhatsapp(User $usuario): ?string
+    {
+        $numero = self::numeroWhatsapp($usuario->telefone);
+
+        if ($numero === null || $usuario->facial_token === null) {
+            return null;
+        }
+
+        $link = route('socios.facial', $usuario->facial_token);
+        $mensagem = "Olá, {$usuario->nome}! Para reservar no tablet do {$usuario->tenant->nome}, cadastre seu reconhecimento facial neste link: {$link}";
+
+        return 'https://wa.me/'.$numero.'?text='.rawurlencode($mensagem);
+    }
+
+    public static function numeroWhatsapp(?string $telefone): ?string
+    {
+        $digitos = preg_replace('/\D+/', '', (string) $telefone) ?? '';
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        if (str_starts_with($digitos, '55') && strlen($digitos) >= 12) {
+            return $digitos;
+        }
+
+        return '55'.$digitos;
+    }
 }

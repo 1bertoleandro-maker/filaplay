@@ -59,7 +59,7 @@ class ImportarSociosPlanilha
 
                 $criados++;
             } catch (ValidationException $e) {
-                $erros[] = "Linha {$numeroLinha}: ".implode('; ', $e->validator->errors()->all());
+                $erros[] = "Linha {$numeroLinha} ({$this->descrever($nome, $email)}): ".implode('; ', $e->validator->errors()->all()).$this->origemDoEmail($actor, $email);
             }
         }
 
@@ -68,6 +68,40 @@ class ImportarSociosPlanilha
             'linhas' => $processadas,
             'erros' => $erros,
         ];
+    }
+
+    private function descrever(mixed $nome, mixed $email): string
+    {
+        $email = trim((string) $email);
+
+        return $email !== '' ? $email : trim((string) $nome);
+    }
+
+    /**
+     * Quando o e-mail já existe, diz onde (neste clube, em outro clube ou excluído)
+     * para o usuário entender por que a linha foi recusada.
+     */
+    private function origemDoEmail(User $actor, mixed $email): string
+    {
+        $email = trim((string) $email);
+
+        if ($email === '') {
+            return '';
+        }
+
+        $existente = User::withoutGlobalScopes()->withTrashed()->where('email', $email)->first();
+
+        if ($existente === null) {
+            return '';
+        }
+
+        if ((int) $existente->tenant_id !== (int) $actor->tenant_id) {
+            return ' (esse e-mail já é de um sócio de outro clube; cada e-mail só pode ficar em um clube, use outro e-mail)';
+        }
+
+        return $existente->trashed()
+            ? ' (esse sócio foi excluído deste clube; use outro e-mail)'
+            : ' (esse sócio já está na lista deste clube)';
     }
 
     private function normalizarPapel(mixed $valor): UserRole

@@ -35,7 +35,14 @@
     </div>
 
     @if ($fechado)
-        <p class="mt-6 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-4 text-lg text-accent">O clube está fechado neste dia.</p>
+        <p class="mt-6 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-4 text-lg text-accent">
+            @if (empty(auth()->user()->tenant?->horario_funcionamento))
+                O horário de funcionamento deste clube ainda não foi cadastrado.
+                <a href="{{ route('clube.editar') }}" class="font-black underline">Cadastre em Clube</a> para liberar as reservas.
+            @else
+                O clube está fechado neste dia.
+            @endif
+        </p>
     @else
         {{-- GRADE VISUAL: quadras x horários --}}
         <div class="mt-4 overflow-x-auto rounded-2xl border border-line bg-card">

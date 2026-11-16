@@ -1,9 +1,30 @@
-<div class="mx-auto max-w-6xl" x-data="{ importando: @entangle('importarAberto') }">
+<div class="mx-auto max-w-6xl" x-data="{
+    importando: @entangle('importarAberto'),
+    whatsappFacial(id, temTelefone) {
+        const janela = temTelefone ? window.open('', '_blank') : null;
+        $wire.enviarConviteFacial(id).then((url) => {
+            if (! janela) {
+                return;
+            }
+            if (url) {
+                janela.location = url;
+            } else {
+                janela.close();
+            }
+        });
+    }
+}">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
             <p class="text-sm font-semibold uppercase tracking-[0.2em] text-brand">Pessoas</p>
             <h1 class="mt-2 text-4xl font-bold">Sócios</h1>
-            <p class="mt-2 text-lg text-muted">Lista primeiro. Clique em <span class="font-semibold text-white">Editar</span> ou em <span class="font-semibold text-white">Novo sócio</span>.</p>
+            <p class="mt-2 text-lg text-muted">
+                Sócios do <span class="font-semibold text-white">{{ $clube->nome }}</span>:
+                <span class="font-semibold text-white">{{ $sociosUsados }}</span> de <span class="font-semibold text-white">{{ $limiteSocios ?? 'sem limite' }}</span>.
+                @if ($ehAdmin)
+                    Secretaria e professores ficam em <a href="{{ route('equipe.index') }}" class="font-semibold text-brand underline">Equipe</a>.
+                @endif
+            </p>
         </div>
         <div class="flex flex-wrap gap-3">
             <a href="{{ route('socios.planilha.modelo') }}" class="flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl border border-line px-4 text-base font-semibold hover:border-brand">
@@ -70,8 +91,8 @@
                     <button type="button" wire:click="salvarFacialBalcao" class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl bg-brand px-5 text-base font-black text-canvas">
                         Salvar facial
                     </button>
-                    <button type="button" wire:click="enviarConviteFacial({{ $facialSocioId }})" class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-line px-5 text-base font-semibold">
-                        Enviar link
+                    <button type="button" x-on:click="whatsappFacial({{ $facialSocioId }}, {{ $facialTemTelefone ? 'true' : 'false' }})" class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-line px-5 text-base font-semibold">
+                        WhatsApp
                     </button>
                 </div>
             </div>
@@ -84,6 +105,8 @@
                 <h2 class="text-xl font-bold">{{ $socioId ? 'Editar sócio' : 'Novo sócio' }}</h2>
                 <button type="button" wire:click="fechar" class="cursor-pointer text-muted hover:text-white">Fechar</button>
             </div>
+            @error('limite') <p class="mt-3 rounded-xl bg-red-500/10 px-4 py-3 font-semibold text-red-400">{{ $message }}</p> @enderror
+            @error('role') <p class="mt-3 rounded-xl bg-red-500/10 px-4 py-3 font-semibold text-red-400">{{ $message }}</p> @enderror
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <label class="block">
                     <span class="text-sm text-muted">Nome</span>
@@ -103,17 +126,6 @@
                     <span class="text-sm text-muted">E-mail</span>
                     <input type="email" wire:model="email" class="mt-1 w-full rounded-xl border-line bg-canvas text-base">
                     @error('email') <span class="text-red-400">{{ $message }}</span> @enderror
-                </label>
-                <label class="block">
-                    <span class="text-sm text-muted">Papel</span>
-                    <select wire:model="role" class="mt-1 w-full rounded-xl border-line bg-canvas text-base">
-                        @foreach ($papeis as $papel)
-                            @if ($ehAdmin || $papel !== \App\Domains\Jogadores\Enums\UserRole::Administrador)
-                                <option value="{{ $papel->value }}">{{ $papel->label() }}</option>
-                            @endif
-                        @endforeach
-                    </select>
-                    @error('role') <span class="text-red-400">{{ $message }}</span> @enderror
                 </label>
                 <label class="block">
                     <span class="text-sm text-muted">Nível</span>
@@ -146,7 +158,6 @@
                 <tr>
                     <th class="px-4 py-3 font-medium">Sócio</th>
                     <th class="px-4 py-3 font-medium">Matrícula</th>
-                    <th class="px-4 py-3 font-medium">Papel</th>
                     <th class="px-4 py-3 font-medium">Status</th>
                     <th class="px-4 py-3 font-medium">Facial</th>
                     <th class="px-4 py-3"></th>
@@ -175,7 +186,6 @@
                             </div>
                         </td>
                         <td class="px-4 py-3 font-mono tabular-nums">{{ $socio->matricula }}</td>
-                        <td class="px-4 py-3">{{ $socio->role->label() }}</td>
                         <td class="px-4 py-3">
                             @if ($socio->bloqueado || $socio->status === \App\Domains\Jogadores\Enums\UserStatus::Inativo)
                                 <span class="font-semibold text-red-400">Inativo</span>
@@ -194,12 +204,12 @@
                         </td>
                         <td class="px-4 py-3 text-right whitespace-nowrap">
                             <button type="button" wire:click="abrirFacialBalcao({{ $socio->id }})" class="cursor-pointer font-semibold text-white hover:underline">Facial</button>
-                            <button type="button" wire:click="enviarConviteFacial({{ $socio->id }})" class="ml-3 cursor-pointer font-semibold text-accent hover:underline">Link</button>
+                            <button type="button" x-on:click="whatsappFacial({{ $socio->id }}, {{ filled($socio->telefone) ? 'true' : 'false' }})" class="ml-3 cursor-pointer font-semibold text-accent hover:underline">WhatsApp</button>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-4 py-10 text-center text-muted">Nenhum sócio ainda. Clique em Novo sócio.</td>
+                        <td colspan="5" class="px-4 py-10 text-center text-muted">Nenhum sócio ainda. Clique em Novo sócio.</td>
                     </tr>
                 @endforelse
             </tbody>

@@ -17,7 +17,7 @@
     <section class="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border {{ $tenant->modo_chuva ? 'border-accent bg-accent/10' : 'border-line bg-card' }} p-6">
         <div>
             <p class="text-2xl font-semibold {{ $tenant->modo_chuva ? 'text-accent' : '' }}">Modo chuva {{ $tenant->modo_chuva ? 'ativado' : 'desativado' }}</p>
-            <p class="mt-1 text-muted">Quando ativo, só quadras cobertas ficam disponíveis e as partidas passam a durar 40 minutos.</p>
+            <p class="mt-1 text-muted">Quando ativo, só quadras cobertas ficam disponíveis. O jogo de simples passa a durar 40 minutos; duplas continuam com 60. A recepção também liga e desliga pelo botão “Choveu” na tela de reservas.</p>
         </div>
         <button type="button" wire:click="alternarModoChuva"
                 class="min-h-14 rounded-2xl px-6 text-lg font-semibold {{ $tenant->modo_chuva ? 'bg-white text-canvas' : 'bg-accent text-canvas' }}">
@@ -57,6 +57,15 @@
             <label class="mt-5 flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-line bg-canvas px-4">
                 <input type="checkbox" wire:model="exigir_facial_tablet" class="h-5 w-5 rounded border-line bg-card">
                 <span class="text-lg">Exigir reconhecimento facial no tablet (sócios)</span>
+            </label>
+            <label class="mt-4 block">
+                <span class="text-lg text-muted">Tempo entre o cadastro de um atleta e o do próximo (segundos)</span>
+                <input type="number" min="15" max="600" step="5" wire:model="prazo_cadastro_segundos"
+                       class="mt-2 w-full max-w-xs rounded-xl border-line bg-canvas text-lg">
+                <span class="mt-1 block text-sm text-muted">
+                    Padrão: 60 s. Se o outro atleta não se cadastrar nesse prazo, a reserva em andamento é removida com um aviso rápido.
+                    Para duplas o prazo vale a cada atleta.
+                </span>
             </label>
         </section>
         <section class="rounded-2xl border border-line bg-card p-6">

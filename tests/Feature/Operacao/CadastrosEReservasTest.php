@@ -377,7 +377,7 @@ test('admin ve os novos modulos', function () {
         ->assertOk()
         ->assertSee('Central')
         ->assertSee('Jogador')
-        ->assertSee('Reservado');
+        ->assertSee('Em jogo');
 });
 
 test('telas livewire salvam clube quadra socio e reserva', function () {

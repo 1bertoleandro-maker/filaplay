@@ -17,10 +17,23 @@
                 <p class="mt-8 max-w-2xl text-2xl text-muted">
                     Cadastro do clube, quadras com foto, sócios, horários, reservas e painel de TV — no mesmo sistema.
                 </p>
-                <a href="{{ route('login') }}"
-                   class="mt-8 inline-flex min-h-16 items-center justify-center rounded-2xl bg-brand px-10 text-xl font-bold text-canvas">
-                    Entrar no painel
-                </a>
+                <p class="mt-8 inline-flex rounded-full bg-accent/15 px-5 py-2 text-lg font-black text-accent">
+                    Teste grátis por {{ config('filaplay.dias_teste') }} dias
+                </p>
+                <div class="mt-5 flex flex-wrap items-center justify-center gap-3">
+                    <a href="{{ route('clube.cadastrar') }}"
+                       class="inline-flex min-h-16 items-center justify-center rounded-2xl bg-brand px-10 text-xl font-bold text-canvas">
+                        Começar teste grátis
+                    </a>
+                    <a href="{{ route('login') }}"
+                       class="inline-flex min-h-16 items-center justify-center rounded-2xl border border-line px-8 text-xl font-bold text-white">
+                        Entrar no painel
+                    </a>
+                </div>
+                <p class="mt-4 max-w-xl text-base text-muted">
+                    Crie o seu clube, cadastre quadras, equipe e sócios e use tudo por {{ config('filaplay.dias_teste') }} dias.
+                    Depois do teste, fale com <a href="{{ \App\Support\Contato::url() }}" class="font-semibold text-brand underline">{{ \App\Support\Contato::rotulo() }}</a> para contratar.
+                </p>
             </div>
 
             <div class="relative z-10 mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
